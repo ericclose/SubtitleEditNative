@@ -69,7 +69,7 @@ func testSpellChecker() {
 
 func testStressWaveform() {
     print("  - [Stress] Running rapid waveform rendering (500 cycles)...")
-    let bridge = SubtitleBridge()
+    _ = SubtitleBridge()
     let samples = UnsafeMutablePointer<Float>.allocate(capacity: 1024 * 1024)
     for i in 0..<1024*1024 { samples[i] = Float.random(in: -1...1) }
     

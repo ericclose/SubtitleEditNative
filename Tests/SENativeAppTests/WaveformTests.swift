@@ -1,7 +1,7 @@
 import XCTest
 import CoreGraphics
 import Accelerate
-@testable import SENativeApp
+import LibSENative
 
 final class WaveformTests: XCTestCase {
     

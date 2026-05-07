@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import SENativeApp
+import LibSENative
 
 final class SubtitleAppTests: XCTestCase {
 
