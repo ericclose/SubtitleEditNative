@@ -14,7 +14,7 @@ let package = Package(
             name: "SENativeApp",
             dependencies: ["LibSENative"],
             path: "Sources",
-            exclude: ["SubtitleBridge.swift", "SubtitleLine.swift", "WaveformRenderer.swift", "AppLogger.swift"]
+            exclude: ["SubtitleBridge.swift", "SubtitleLine.swift", "WaveformRenderer.swift", "AppLogger.swift", "UIExtensions.swift"]
         ),
         .executableTarget(
             name: "TestRunner",
