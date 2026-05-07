@@ -30,6 +30,16 @@ jobs:
     - name: Run .NET Tests
       run: dotnet test LibSEBridge.Tests/LibSEBridge.Tests.csproj --configuration Release
 
+    - name: Build .NET Bridge (Native AOT)
+      run: |
+        dotnet publish -c Release -r osx-arm64 --self-contained true /p:PublishAot=true /p:NativeLib=Shared -o bin/Native LibSEBridge/LibSEBridge.csproj
+        mkdir -p .build/debug
+        mkdir -p .build/release
+        cp bin/Native/*.dylib .build/debug/
+        cp bin/Native/*.dylib .build/release/
+        # Also copy to current dir for some local runners
+        cp bin/Native/*.dylib .
+
     - name: Run Swift Tests (SPM)
       run: swift test
 
