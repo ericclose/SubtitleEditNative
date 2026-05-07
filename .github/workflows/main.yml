@@ -44,7 +44,9 @@ jobs:
       run: swift test
 
     - name: Run Logic Stress Tests
-      run: swift run TestRunner
+      run: |
+        printf "1\n00:00:00,000 --> 00:00:05,000\nHello Stress Test\n\n" > dummy.srt
+        swift run TestRunner
 
     - name: Run Packaging Script
       run: |
