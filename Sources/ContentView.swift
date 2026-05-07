@@ -582,8 +582,7 @@ struct ContentView: View {
     func generateWaveform(currentTime: Double) -> NSImage? {
         let width = 800
         let height = 120
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-        if let cgImage = bridge.renderWaveform(width: width, height: height, currentTime: currentTime, zoom: waveformZoom, scale: scale) {
+        if let cgImage = bridge.renderWaveform(width: width, height: height, currentTime: currentTime, zoom: waveformZoom) {
             return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
         }
         return nil
@@ -607,12 +606,8 @@ struct VideoPlayerView: NSViewRepresentable {
     let bridge: SubtitleBridge
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
-        // On macOS, passing the layer pointer is more reliable for mpv 'wid'
-        if let layer = view.layer {
-            bridge.setVideoHandle(handle: Unmanaged.passUnretained(layer).toOpaque())
-        }
+        // libmpv needs the raw pointer or window handle
+        bridge.setVideoHandle(handle: Unmanaged.passUnretained(view).toOpaque())
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}

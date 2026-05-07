@@ -361,14 +361,14 @@ public class SubtitleBridge {
         return removeParagraphFn?(ctx, Int32(index)) == 1
     }
     
-    public func renderWaveform(width: Int, height: Int, currentTime: Double, zoom: Double = 10.0, scale: CGFloat = 1.0) -> CGImage? {
+    public func renderWaveform(width: Int, height: Int, currentTime: Double, zoom: Double = 10.0) -> CGImage? {
         guard let ctx = context else { return nil }
         
         let getAudioFn = unsafeBitCast(dlsym(handle, "se_get_audio_samples"), to: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<Int32>) -> UnsafePointer<Float>?).self)
         var count: Int32 = 0
         if let samples = getAudioFn(ctx, &count), count > 0 {
             // Use the new high-performance Swift renderer
-            if let image = WaveformRenderer.renderWaveform(samples: samples, count: Int(count), width: width, height: height, currentTime: currentTime, windowSize: zoom, scale: scale) {
+            if let image = WaveformRenderer.renderWaveform(samples: samples, count: Int(count), width: width, height: height, currentTime: currentTime, windowSize: zoom) {
                 return image
             }
         }

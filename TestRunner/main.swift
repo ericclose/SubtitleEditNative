@@ -20,8 +20,7 @@ func testWaveformRendering() {
             count: sampleCount,
             width: width,
             height: height,
-            currentTime: currentTime,
-            scale: 1.0
+            currentTime: currentTime
         )
     }
     
@@ -34,26 +33,6 @@ func testWaveformRendering() {
         }
     }
     
-    print("  - Testing High-DPI rendering (scale=2.0)...")
-    let image2 = samples.withUnsafeBufferPointer { buffer in
-        return WaveformRenderer.renderWaveform(
-            samples: buffer.baseAddress!,
-            count: sampleCount,
-            width: width,
-            height: height,
-            currentTime: currentTime,
-            scale: 2.0
-        )
-    }
-    
-    if let img = image2 {
-        if img.width == 800 && img.height == 200 {
-            print("  ✅ Success: Produced 800x200 image")
-        } else {
-            print("  ❌ Failure: Expected 800x200, got \(img.width)x\(img.height)")
-            exit(1)
-        }
-    }
 }
 
 func testSilenceHandling() {
@@ -106,8 +85,7 @@ func testStressWaveform() {
             width: 800, 
             height: 150, 
             currentTime: Double.random(in: 0...100), 
-            windowSize: 10.0,
-            scale: 1.0 // Use 1.0 for stress to focus on logic overhead
+            windowSize: 10.0
         )
     }
     let duration = Date().timeIntervalSince(start)
@@ -162,7 +140,7 @@ func testBridgeLeak() {
 
 func testLoggingLevels() {
     print("  - Testing logging levels (Warning & Error)...")
-    let bridge = SubtitleBridge()
+    _ = SubtitleBridge()
     
     AppLog("Test Warning Message", level: .warning)
     AppLog("Test Error Message", level: .error)
