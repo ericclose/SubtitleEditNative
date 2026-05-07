@@ -32,7 +32,7 @@ public class AppLogger {
     public func log(_ message: String, level: LogLevel = .info, file: String = #file, line: Int = #line) {
         let fileName = (file as NSString).lastPathComponent
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        let logEntry = "[\(timestamp)] [\(level.rawValue)] [\(fileName):\(line)] \(message)\n"
+        let logEntry = "[\(timestamp)] (\(level.rawValue)) [\(fileName):\(line)] \(message)\n"
 
         // Print to console
         print(logEntry, terminator: "")

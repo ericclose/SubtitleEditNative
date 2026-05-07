@@ -127,11 +127,11 @@ func testLoggingLevels() {
     
     do {
         let logContent = try String(contentsOfFile: logPath)
-        let hasWarning = logContent.contains("[WARN]")
-        let hasError = logContent.contains("[ERROR]")
+        let hasWarning = logContent.contains("(WARN)")
+        let hasError = logContent.contains("(ERROR)")
         
         if hasWarning && hasError {
-            print("  ✅ Success: Captured [WARN] and [ERROR] in logs")
+            print("  ✅ Success: Captured categorized logs (Warning & Error levels)")
         } else {
             print("  ❌ Failure: Missing levels in logs. Warn: \(hasWarning), Error: \(hasError)")
             exit(1)
