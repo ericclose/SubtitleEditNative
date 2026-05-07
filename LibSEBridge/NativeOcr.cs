@@ -38,7 +38,7 @@ namespace LibSEBridge
                 try
                 {
                     _ocrDelegate(pixels, info.Width, info.Height, bitmap.RowBytes, language, resultPtr, maxResultSize);
-                    string result = Marshal.PtrToStringAnsi(resultPtr); // Bridge handles encoding
+                    string? result = Marshal.PtrToStringAnsi(resultPtr); // Bridge handles encoding
                     results.Add(result ?? string.Empty);
                 }
                 finally

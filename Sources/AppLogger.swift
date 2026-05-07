@@ -13,6 +13,7 @@ public class AppLogger {
     private let fileManager = FileManager.default
     private var logFileURL: URL?
     public var logFilePath: String? { logFileURL?.path }
+    public var isConsoleMuted = false
 
     private init() {
         setupLogFile()
@@ -35,7 +36,9 @@ public class AppLogger {
         let logEntry = "[\(timestamp)] [\(level.rawValue)] [\(fileName):\(line)] \(message)\n"
 
         // Print to console
-        print(logEntry, terminator: "")
+        if !isConsoleMuted {
+            print(logEntry, terminator: "")
+        }
 
         // Write to file
         if let url = logFileURL {

@@ -45,8 +45,26 @@ VERSION=$(cat VERSION | tr -d '\n')
 echo "🏷️  Setting version to ${VERSION}..."
 plutil -replace CFBundleShortVersionString -string "${VERSION}" "${CONTENTS_DIR}/Info.plist"
 plutil -replace CFBundleVersion -string "${VERSION}" "${CONTENTS_DIR}/Info.plist"
+plutil -replace CFBundleIconFile -string "AppIcon" "${CONTENTS_DIR}/Info.plist"
 
-# 5. Create DMG
+# 5. Generate icns
+echo "🎨 Generating App Icon..."
+ICONSET_DIR="Assets/AppIcon.iconset"
+mkdir -p "${ICONSET_DIR}"
+sips -z 16 16     Assets/AppIcon.png --out "${ICONSET_DIR}/icon_16x16.png" > /dev/null 2>&1
+sips -z 32 32     Assets/AppIcon.png --out "${ICONSET_DIR}/icon_16x16@2x.png" > /dev/null 2>&1
+sips -z 32 32     Assets/AppIcon.png --out "${ICONSET_DIR}/icon_32x32.png" > /dev/null 2>&1
+sips -z 64 64     Assets/AppIcon.png --out "${ICONSET_DIR}/icon_32x32@2x.png" > /dev/null 2>&1
+sips -z 128 128   Assets/AppIcon.png --out "${ICONSET_DIR}/icon_128x128.png" > /dev/null 2>&1
+sips -z 256 256   Assets/AppIcon.png --out "${ICONSET_DIR}/icon_128x128@2x.png" > /dev/null 2>&1
+sips -z 256 256   Assets/AppIcon.png --out "${ICONSET_DIR}/icon_256x256.png" > /dev/null 2>&1
+sips -z 512 512   Assets/AppIcon.png --out "${ICONSET_DIR}/icon_256x256@2x.png" > /dev/null 2>&1
+sips -z 512 512   Assets/AppIcon.png --out "${ICONSET_DIR}/icon_512x512.png" > /dev/null 2>&1
+cp Assets/AppIcon.png "${ICONSET_DIR}/icon_512x512@2x.png"
+iconutil -c icns "${ICONSET_DIR}" -o "${RESOURCES_DIR}/AppIcon.icns"
+rm -rf "${ICONSET_DIR}"
+
+# 6. Create DMG
 echo "💿 Creating DMG..."
 ln -s /Applications dist/Applications
 ARCH="arm64"

@@ -72,6 +72,7 @@ public static class NativeExports
         if (_contexts.TryRemove(handle, out var ctx))
         {
             if (ctx.PixelLock.IsAllocated) ctx.PixelLock.Free();
+            if (ctx.AudioLock.IsAllocated) ctx.AudioLock.Free();
             if (ctx.MpvHandle != IntPtr.Zero) MpvNative.mpv_terminate_destroy(ctx.MpvHandle);
         }
     }
@@ -171,6 +172,10 @@ public static class NativeExports
                     short sample = BitConverter.ToInt16(rawData, i * 2);
                     ctx.AudioSamples[i] = sample / 32768f;
                 }
+
+                // Unpin old and pin new
+                if (ctx.AudioLock.IsAllocated) ctx.AudioLock.Free();
+                ctx.AudioLock = GCHandle.Alloc(ctx.AudioSamples, GCHandleType.Pinned);
 
                 DoLog($"Context {handle}: Real audio extracted: {ctx.AudioSamples.Length} samples");
             } catch (Exception ex) {
@@ -750,7 +755,7 @@ public static class NativeExports
     public unsafe static IntPtr GetAudioSamples(IntPtr handle, int* count)
     {
         var ctx = GetContext(handle);
-        if (ctx == null || ctx.AudioSamples.Length == 0)
+        if (ctx == null || ctx.AudioSamples.Length == 0 || !ctx.AudioLock.IsAllocated)
         {
             if (count != null) *count = 0;
             return IntPtr.Zero;

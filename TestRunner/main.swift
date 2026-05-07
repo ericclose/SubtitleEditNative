@@ -88,23 +88,41 @@ func testStressUndoRedo() {
     // Mock a subtitle with 1000 lines
     _ = bridge.loadSubtitle(path: "dummy.srt") // This will initialize context
     
+    AppLogger.shared.isConsoleMuted = true
     let start = Date()
     for i in 0..<1000 {
         _ = bridge.updateParagraph(index: 0, text: "Stress Test \(i)")
         _ = bridge.undo()
         _ = bridge.redo()
+        if i % 100 == 0 {
+            AppLogger.shared.isConsoleMuted = false
+            print(".", terminator: "")
+            fflush(stdout)
+            AppLogger.shared.isConsoleMuted = true
+        }
     }
+    AppLogger.shared.isConsoleMuted = false
+    print("") // newline
     let duration = Date().timeIntervalSince(start)
     print("  ✅ Success: 1000 cycles completed in \(String(format: "%.2f", duration))s")
 }
 
 func testBridgeLeak() {
     print("  - [Stress] Running bridge lifecycle stress (200 initializations)...")
+    AppLogger.shared.isConsoleMuted = true
     let start = Date()
-    for _ in 0..<200 {
+    for i in 0..<200 {
         let bridge = SubtitleBridge()
         _ = bridge.loadSubtitle(path: "dummy.srt")
+        if i % 20 == 0 { 
+            AppLogger.shared.isConsoleMuted = false
+            print(".", terminator: "")
+            fflush(stdout)
+            AppLogger.shared.isConsoleMuted = true
+        }
     }
+    AppLogger.shared.isConsoleMuted = false
+    print("") // newline
     let duration = Date().timeIntervalSince(start)
     print("  ✅ Success: 200 bridge cycles in \(String(format: "%.2f", duration))s")
 }
