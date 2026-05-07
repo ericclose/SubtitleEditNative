@@ -172,9 +172,9 @@ public static class NativeExports
                     ctx.AudioSamples[i] = sample / 32768f;
                 }
 
-                Console.WriteLine($"[.NET] Context {handle}: Real audio extracted: {ctx.AudioSamples.Length} samples");
+                DoLog($"Context {handle}: Real audio extracted: {ctx.AudioSamples.Length} samples");
             } catch (Exception ex) {
-                Console.WriteLine($"[.NET] Context {handle}: FFmpeg Error: {ex.Message}");
+                DoLog($"Context {handle}: FFmpeg Error: {ex.Message}", 2);
             }
         });
     }
@@ -453,7 +453,7 @@ public static class NativeExports
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[.NET] Save Error: {ex.Message}");
+            DoLog($"Save Error: {ex.Message}", 2);
             return -2;
         }
     }
@@ -524,7 +524,7 @@ public static class NativeExports
                 ctx.OnProgress?.Invoke(handle, 1.0, donePtr);
                 Marshal.FreeCoTaskMem(donePtr);
             } catch (Exception ex) {
-                Console.WriteLine($"[.NET] Export Error: {ex.Message}");
+                DoLog($"Export Error: {ex.Message}", 2);
             }
         });
     }
@@ -550,7 +550,7 @@ public static class NativeExports
             MpvNative.SendCommand(ctx.MpvHandle, "set", "sub-color", color);
         }
 
-        Console.WriteLine($"[.NET] Context {handle}: Style updated: {font}, {size}pt, {color}");
+        DoLog($"Context {handle}: Style updated: {font}, {size}pt, {color}");
     }
 
     [UnmanagedCallersOnly(EntryPoint = "se_get_line_count")]
@@ -620,7 +620,7 @@ public static class NativeExports
                 ctx.OnProgress?.Invoke(handle, 1.0, msgDone);
                 Marshal.FreeCoTaskMem(msgDone);
             } catch (Exception ex) {
-                Console.WriteLine("[.NET] STT Error: " + ex.Message);
+                DoLog("STT Error: " + ex.Message, 2);
             }
         });
     }
@@ -660,7 +660,7 @@ public static class NativeExports
                 ctx.OnProgress?.Invoke(handle, 1.0, donePtr);
                 Marshal.FreeCoTaskMem(donePtr);
             } catch (Exception ex) {
-                Console.WriteLine("[.NET] Translate Error: " + ex.Message);
+                DoLog("Translate Error: " + ex.Message, 2);
             }
         });
     }

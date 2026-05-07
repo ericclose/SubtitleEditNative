@@ -10,9 +10,9 @@ namespace LibSEBridge
 
     public class NativeOcrStrategy : IOcrStrategy
     {
-        private static NativeOcrDelegate _ocrDelegate;
+        private static NativeOcrDelegate? _ocrDelegate;
 
-        public static void SetDelegate(NativeOcrDelegate ocrDelegate)
+        public static void SetDelegate(NativeOcrDelegate? ocrDelegate)
         {
             _ocrDelegate = ocrDelegate;
         }
