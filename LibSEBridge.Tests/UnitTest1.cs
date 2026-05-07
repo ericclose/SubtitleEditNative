@@ -112,11 +112,11 @@ namespace LibSEBridge.Tests
             string log;
             int count = FixEngine.RunCommonFixes(sub, out log);
             
-            TestContext.WriteLine("Fix Log:\n" + log);
+            TestContext.Out.WriteLine("Fix Log:\n" + log);
             
             Assert.That(count, Is.GreaterThan(0), "Should have found some errors");
-            TestContext.WriteLine($"Paragraph 0: {sub.Paragraphs[0]}");
-            TestContext.WriteLine($"Paragraph 1: {sub.Paragraphs[1]}");
+            TestContext.Out.WriteLine($"Paragraph 0: {sub.Paragraphs[0]}");
+            TestContext.Out.WriteLine($"Paragraph 1: {sub.Paragraphs[1]}");
             
             // Check unneeded spaces
             Assert.That(sub.Paragraphs[2].Text, Is.EqualTo("Three spaces"), "Should fix double spaces");
