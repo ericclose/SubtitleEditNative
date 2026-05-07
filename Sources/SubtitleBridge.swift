@@ -112,6 +112,9 @@ public class SubtitleBridge {
     typealias MergeSubtitlesFunc = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<Int8>) -> Int32
     typealias FixCommonErrorsFunc = @convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<UnsafeMutableRawPointer?>) -> Int32
     
+    typealias InsertParagraphFunc = @convention(c) (UnsafeMutableRawPointer, Int32, UnsafePointer<Int8>, Double, Double) -> Int32
+    typealias RemoveParagraphFunc = @convention(c) (UnsafeMutableRawPointer, Int32) -> Int32
+    
     private var renderWaveformFn: RenderWaveformFastFunc?
     private var loadSubtitleFn: LoadSubtitleFunc?
     private var getParagraphTextFn: GetParagraphTextFunc?
@@ -140,6 +143,8 @@ public class SubtitleBridge {
     private var translateFn: TranslateFunc?
     private var mergeFn: MergeSubtitlesFunc?
     private var fixCommonErrorsFn: FixCommonErrorsFunc?
+    private var insertParagraphFn: InsertParagraphFunc?
+    private var removeParagraphFn: RemoveParagraphFunc?
     
     typealias LoadTranslationFunc = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<Int8>) -> Int32
     typealias GetTranslationTextFunc = @convention(c) (UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?
@@ -187,6 +192,8 @@ public class SubtitleBridge {
             translateFn = unsafeBitCast(dlsym(h, "se_translate"), to: TranslateFunc.self)
             mergeFn = unsafeBitCast(dlsym(h, "se_merge_subtitles"), to: MergeSubtitlesFunc.self)
             fixCommonErrorsFn = unsafeBitCast(dlsym(h, "se_fix_common_errors"), to: FixCommonErrorsFunc.self)
+            insertParagraphFn = unsafeBitCast(dlsym(h, "se_insert_paragraph"), to: InsertParagraphFunc.self)
+            removeParagraphFn = unsafeBitCast(dlsym(h, "se_remove_paragraph"), to: RemoveParagraphFunc.self)
             
             let setOcrCallbackFn = unsafeBitCast(dlsym(h, "se_set_native_ocr_callback"), to: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
             setOcrCallbackFn(unsafeBitCast(ocrTrampoline, to: UnsafeMutableRawPointer.self))
@@ -344,14 +351,24 @@ public class SubtitleBridge {
         return updateParagraphTextFn?(ctx, Int32(index), text) == 1
     }
     
-    public func renderWaveform(width: Int, height: Int, currentTime: Double, zoom: Double = 10.0) -> CGImage? {
+    public func insertParagraph(index: Int, text: String, startMs: Double, endMs: Double) -> Bool {
+        guard let ctx = context else { return false }
+        return insertParagraphFn?(ctx, Int32(index), text, startMs, endMs) == 1
+    }
+    
+    public func removeParagraph(index: Int) -> Bool {
+        guard let ctx = context else { return false }
+        return removeParagraphFn?(ctx, Int32(index)) == 1
+    }
+    
+    public func renderWaveform(width: Int, height: Int, currentTime: Double, zoom: Double = 10.0, scale: CGFloat = 1.0) -> CGImage? {
         guard let ctx = context else { return nil }
         
         let getAudioFn = unsafeBitCast(dlsym(handle, "se_get_audio_samples"), to: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<Int32>) -> UnsafePointer<Float>?).self)
         var count: Int32 = 0
         if let samples = getAudioFn(ctx, &count), count > 0 {
             // Use the new high-performance Swift renderer
-            if let image = WaveformRenderer.renderWaveform(samples: samples, count: Int(count), width: width, height: height, currentTime: currentTime, windowSize: zoom) {
+            if let image = WaveformRenderer.renderWaveform(samples: samples, count: Int(count), width: width, height: height, currentTime: currentTime, windowSize: zoom, scale: scale) {
                 return image
             }
         }

@@ -44,266 +44,152 @@ struct ContentView: View {
     let fonts = ["Helvetica Neue", "Inter", "Roboto", "PingFang SC", "Courier New"]
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Header Toolbar (P5)
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("SUBTITLE EDIT NATIVE").font(.system(size: 14, weight: .black))
-                        Text(statusMessage).font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
-                    }
-                    Spacer()
-                    
-                    Button(action: openVideo) {
-                        Label("Video", systemImage: "video.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button(action: openFile) {
-                        Label("Subtitle", systemImage: "doc.text.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    
+        VStack(spacing: 0) {
+            // Header Toolbar
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SUBTITLE EDIT NATIVE").font(.system(size: 14, weight: .black))
+                    Text(statusMessage).font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                }
+                Spacer()
+                
+                Group {
+                    Button(action: openVideo) { Label("Video", systemImage: "video.fill") }
+                    Button(action: openFile) { Label("Subtitle", systemImage: "doc.text.fill") }
                     Button(action: { isTranslationMode.toggle() }) {
                         Label("Translate Mode", systemImage: "arrow.left.and.right.square")
                     }
-                    .buttonStyle(.bordered)
                     .tint(isTranslationMode ? .green : .gray)
-
-                    Button(action: { showStyleEditor.toggle() }) {
-                        Image(systemName: "paintbrush.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(showStyleEditor ? .orange : .blue)
-
-                    Button(action: saveFile) {
-                        Image(systemName: "square.and.arrow.down")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.blue)
-
-                    Button(action: exportVideo) {
-                        Image(systemName: "video.badge.plus")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.purple)
-
-                    Button(action: { showOcrDialog() }) {
-                        Label("OCR", systemImage: "text.viewfinder")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.cyan)
-
-                    Button(action: runFixCommonErrors) {
-                        Label("Fix", systemImage: "wrench.and.screwdriver.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                }
-                .padding()
-                .background(VisualEffectView(material: .headerView, blendingMode: .withinWindow))
-                
-                Divider().opacity(0.1)
-                
-                // Video Preview (P1 Verification)
-                ZStack(alignment: .bottom) {
-                    VideoPlayerView(bridge: bridge)
-                        .frame(height: 250)
-                        .background(Color.black)
-                        .cornerRadius(8)
                     
-                    // Controls Overlay
-                    HStack(spacing: 20) {
-                        Button(action: { bridge.seek(seconds: -5) }) {
-                            Image(systemName: "gobackward.5")
-                        }
-                        Button(action: { bridge.togglePause() }) {
-                            Image(systemName: "playpause.fill")
-                                .font(.title2)
-                        }
-                        Button(action: { bridge.seek(seconds: 5) }) {
-                            Image(systemName: "goforward.5")
-                        }
-                        
-                        Divider().frame(height: 20)
-                        
-                        Button(action: syncStart) {
-                            Label("Sync Start", systemImage: "arrow.right.to.line")
-                        }
-                        .foregroundColor(.green)
-                        
-                        Button(action: syncEnd) {
-                            Label("Sync End", systemImage: "arrow.left.to.line")
-                        }
-                        .foregroundColor(.red)
+                    Button(action: { showStyleEditor.toggle() }) { Image(systemName: "paintbrush.fill") }
+                    .tint(showStyleEditor ? .orange : .blue)
+                    
+                    Menu {
+                        Button(action: { showFindReplace = true }) { Label("Find & Replace", systemImage: "magnifyingglass") }
+                        Button(action: { showTimeShift = true }) { Label("Time Shift", systemImage: "clock.arrow.2.circlepath") }
+                        Button(action: runFixCommonErrors) { Label("Fix Common Errors", systemImage: "wrench.and.screwdriver.fill") }
+                        Button(action: { showSpellCheck = true }) { Label("Spell Check", systemImage: "text.badge.checkmark") }
+                    } label: {
+                        Label("Tools", systemImage: "hammer.fill")
                     }
-                    .padding(8)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(20)
-                    .padding(.bottom, 10)
+                    
+                    Button(action: saveFile) { Image(systemName: "square.and.arrow.down") }
+                    Button(action: exportVideo) { Image(systemName: "video.badge.plus") }
                 }
-                .padding()
+                .buttonStyle(.bordered)
+            }
+            .padding(8)
+            .background(VisualEffectView(material: .headerView, blendingMode: .withinWindow))
+            
+            Divider()
+            
+            // Main Content Area
+            VSplitView {
+                HSplitView {
+                    // Left: List and Edit Area
+                    VSplitView {
+                        // Enhanced Subtitle Table (Phase 2)
+                        SubtitleTableView(
+                            lines: lines,
+                            selection: $selection,
+                            activeIndex: lines.firstIndex(where: { isLineActive($0) })
+                        )
+                        .frame(minHeight: 200)
+                        
+                        // Edit Area (Phase 1 Priority)
+                        
+                        // Edit Area (New Priority Feature)
+                        EditAreaView(
+                            selectedLine: Binding(
+                                get: { lines.first(where: { $0.id == selection }) },
+                                set: { _ in }
+                            ),
+                            onUpdateText: updateSubtitleLine,
+                            onUpdateTimes: updateSubtitleTimes
+                        )
+                        .frame(height: 150)
+                    }
+                    .frame(minWidth: 400)
+                    
+                    // Right: Video Preview
+                    ZStack(alignment: .bottom) {
+                        VideoPlayerView(bridge: bridge)
+                            .background(Color.black)
+                        
+                        // Controls Overlay
+                        HStack(spacing: 20) {
+                            Button(action: { bridge.seek(seconds: -5) }) { Image(systemName: "gobackward.5") }
+                            Button(action: { bridge.togglePause() }) { Image(systemName: "playpause.fill").font(.title2) }
+                            Button(action: { bridge.seek(seconds: 5) }) { Image(systemName: "goforward.5") }
+                            Divider().frame(height: 20)
+                            Button(action: syncStart) { Label("Sync Start", systemImage: "arrow.right.to.line") }.foregroundColor(.green)
+                            Button(action: syncEnd) { Label("Sync End", systemImage: "arrow.left.to.line") }.foregroundColor(.red)
+                        }
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                        .padding(.bottom, 10)
+                    }
+                    .frame(minWidth: 300)
+                }
+                .background(
+                    Group {
+                        Button("") { insertAfter() }.keyboardShortcut("n", modifiers: .command)
+                        Button("") { insertBefore() }.keyboardShortcut("n", modifiers: [.command, .shift])
+                        Button("") { deleteLine() }.keyboardShortcut(.delete, modifiers: .command)
+                        Button("") { mergeWithNext() }.keyboardShortcut("m", modifiers: .command)
+                    }
+                    .opacity(0)
+                )
                 
-                Divider().opacity(0.1)
-                
-                // Interactive Waveform (Timeline Alignment)
-                VStack(alignment: .leading, spacing: 8) {
+                // Bottom: Waveform
+                VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("AUDIO WAVEFORM (DRAG TO ADJUST)")
+                        Text("AUDIO WAVEFORM")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.orange)
-                        
                         Spacer()
-                        
                         HStack(spacing: 12) {
                             Image(systemName: "minus.magnifyingglass")
-                            Slider(value: $waveformZoom, in: 1...30)
-                                .frame(width: 100)
+                            Slider(value: $waveformZoom, in: 1...30).frame(width: 100)
                             Image(systemName: "plus.magnifyingglass")
-                            
-                            Button("Reset View") {
-                                waveformOffset = 0
-                                waveformZoom = 10
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.system(size: 10))
+                            Button("Reset View") { waveformOffset = 0; waveformZoom = 10 }
+                                .buttonStyle(.borderless).font(.system(size: 10))
                         }
                     }
+                    .padding(.horizontal)
                     
                     TimelineView(.animation) { context in
                         let time = bridge.getVideoTime()
+                        
                         if let waveformImage = generateWaveform(currentTime: time) {
                             ZStack {
                                 Image(nsImage: waveformImage)
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(height: 80)
-                                    .cornerRadius(8)
+                                    .aspectRatio(contentMode: .fit)
                                     .gesture(
                                         DragGesture(minimumDistance: 0)
                                             .onChanged { value in
-                                                handleWaveformDrag(value: value, width: 800) // Assume fixed width for simplicity or use GeometryReader
-                                            }
-                                            .onEnded { _ in
-                                                loadSubtitle(at: filePath)
+                                                let percent = value.location.x / 800.0
+                                                let offset = (percent - 0.5) * waveformZoom
+                                                let targetTime = time + offset
+                                                bridge.seek(seconds: targetTime)
                                             }
                                     )
                                 
-                                // Draw vertical playhead
                                 Rectangle()
                                     .fill(Color.red)
                                     .frame(width: 2)
-                                    .offset(x: 0)
+                                    .frame(maxHeight: .infinity)
                             }
                         }
                     }
                 }
-                .padding()
-                
-                Divider().opacity(0.1)
-                
-                // Content List & Editor (P3)
-                VStack(spacing: 0) {
-                    HSplitView {
-                        List(lines, selection: $selection) { line in
-                            let isActive = isLineActive(line)
-                            HStack(alignment: .top, spacing: 12) {
-                                Text("\(line.index + 1)")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(isActive ? .orange : .gray)
-                                    .frame(width: 25)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(line.timeString)
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundColor(isActive ? .orange : .orange.opacity(0.8))
-                                    
-                                    HStack(spacing: 20) {
-                                        Text(line.text)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(isActive ? .white : .white.opacity(0.7))
-                                            .frame(maxWidth: isTranslationMode ? .infinity : nil, alignment: .leading)
-                                        
-                                        if isTranslationMode {
-                                            TextField("Translation", text: Binding(
-                                                get: { translationLines[line.index] ?? "" },
-                                                set: { translationLines[line.index] = $0; updateTranslation(line.index, $0) }
-                                            ))
-                                            .textFieldStyle(.plain)
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.green)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 4)
-                            .listRowBackground(isActive ? Color.orange.opacity(0.2) : (selection == line.id ? Color.white.opacity(0.05) : Color.clear))
-                        }
-                        .listStyle(.inset)
-                        
-                        if showStyleEditor {
-                        VStack(alignment: .leading, spacing: 15) {
-                            Text("STYLE SETTINGS")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.gray)
-                            
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Font Family").font(.caption2).foregroundColor(.gray)
-                                Picker("", selection: $style.fontName) {
-                                    ForEach(fonts, id: \.self) { font in
-                                        Text(font).tag(font)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Size: \(Int(style.fontSize))pt").font(.caption2).foregroundColor(.gray)
-                                Slider(value: $style.fontSize, in: 10...72, step: 1)
-                            }
-                            
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text("Text").font(.caption2).foregroundColor(.gray)
-                                    ColorPicker("", selection: $style.textColor)
-                                }
-                                Spacer()
-                                VStack(alignment: .leading) {
-                                    Text("Outline").font(.caption2).foregroundColor(.gray)
-                                    ColorPicker("", selection: $style.outlineColor)
-                                }
-                            }
-                            
-                            Button(action: applyStyles) {
-                                Text("Apply Global Styles")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .frame(width: 200)
-                        .padding()
-                        }
-                    }
-                    
-                    // Style Preview (P2)
-                    if let selId = selection, let line = lines.first(where: { $0.id == selId }) {
-                        VStack {
-                            Text(line.text)
-                                .font(.custom(style.fontName, size: style.fontSize))
-                                .foregroundColor(style.textColor)
-                                .shadow(color: style.outlineColor, radius: 2)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.black.opacity(0.8))
-                        }
-                        .frame(height: 80)
-                        .transition(.move(edge: .bottom))
-                    }
-                }
+                .frame(height: 120)
+                .background(Color.black.opacity(0.8))
             }
         }
-        .frame(minWidth: 900, minHeight: 700)
+        .frame(minWidth: 1000, minHeight: 700)
         .onReceive(timer) { _ in
             currentTime = bridge.getVideoTime()
         }
@@ -334,14 +220,23 @@ struct ContentView: View {
             runSpellCheck: { self.showSpellCheck = true }
         ))
         .sheet(isPresented: $showFindReplace) {
-            FindReplaceView(
-                findText: $findText,
-                replaceText: $replaceText,
-                matchCase: $matchCase,
-                isRegex: $isRegex,
-                onFindNext: performFindNext,
-                onReplaceAll: performReplaceAll
-            )
+            VStack(spacing: 20) {
+                Text("Find and Replace").font(.headline)
+                TextField("Find", text: $findText).textFieldStyle(.roundedBorder)
+                TextField("Replace", text: $replaceText).textFieldStyle(.roundedBorder)
+                HStack {
+                    Toggle("Match Case", isOn: $matchCase)
+                    Toggle("Regex", isOn: $isRegex)
+                }
+                HStack {
+                    Button("Close") { showFindReplace = false }
+                    Spacer()
+                    Button("Find Next") { performFindNext() }
+                    Button("Replace All") { performReplaceAll() }.buttonStyle(.borderedProminent)
+                }
+            }
+            .padding()
+            .frame(width: 350)
         }
         .sheet(isPresented: $showSTT) {
             STTDialog(onStart: performSTT)
@@ -358,7 +253,14 @@ struct ContentView: View {
             SpellCheckView(lines: lines, onUpdateLine: updateSubtitleLine)
         }
         .sheet(isPresented: $showTimeShift) {
-            TimeShiftView(shiftMs: $shiftMs, onApply: performTimeShift)
+            TimeShiftView(milliseconds: $shiftMs, onApply: performTimeShift)
+        }
+        .onChange(of: currentTime) { time in
+            if let line = lines.first(where: { time >= $0.start && time <= $0.end }) {
+                if selection != line.id {
+                    selection = line.id
+                }
+            }
         }
         .sheet(isPresented: $showFixResults) {
             FixResultsView(count: fixCount, logLines: fixLogLines)
@@ -418,6 +320,57 @@ struct ContentView: View {
         showSTT = true
     }
     
+    func insertAfter() {
+        guard let selId = selection, let line = lines.first(where: { $0.id == selId }) else { return }
+        let newStart = line.end + 0.1
+        let newEnd = newStart + 2.0
+        if bridge.insertParagraph(index: line.index + 1, text: "", startMs: newStart * 1000, endMs: newEnd * 1000) {
+            loadSubtitle(at: filePath)
+            selection = lines.first(where: { $0.index == line.index + 1 })?.id
+            statusMessage = "Line inserted after"
+        }
+    }
+    
+    func insertBefore() {
+        guard let selId = selection, let line = lines.first(where: { $0.id == selId }) else { return }
+        let newStart = max(0, line.start - 2.1)
+        let newEnd = max(0.1, line.start - 0.1)
+        if bridge.insertParagraph(index: line.index, text: "", startMs: newStart * 1000, endMs: newEnd * 1000) {
+            loadSubtitle(at: filePath)
+            selection = lines.first(where: { $0.index == line.index })?.id
+            statusMessage = "Line inserted before"
+        }
+    }
+    
+    func deleteLine() {
+        guard let selId = selection, let line = lines.first(where: { $0.id == selId }) else { return }
+        if bridge.removeParagraph(index: line.index) {
+            let idx = line.index
+            loadSubtitle(at: filePath)
+            if idx < lines.count {
+                selection = lines[idx].id
+            } else {
+                selection = lines.last?.id
+            }
+            statusMessage = "Line deleted"
+        }
+    }
+    
+    func mergeWithNext() {
+        guard let selId = selection, let idx = lines.firstIndex(where: { $0.id == selId }), idx < lines.count - 1 else { return }
+        let current = lines[idx]
+        let next = lines[idx + 1]
+        let mergedText = current.text + "\n" + next.text
+        
+        if bridge.updateParagraph(index: current.index, text: mergedText) {
+            if bridge.removeParagraph(index: next.index) {
+                loadSubtitle(at: filePath)
+                selection = lines[idx].id
+                statusMessage = "Lines merged"
+            }
+        }
+    }
+    
     func performSTT(model: String, lang: String) {
         AppLog("Starting STT: model=\(model), lang=\(lang)")
         bridge.speechToText(videoPath: videoPath)
@@ -435,10 +388,19 @@ struct ContentView: View {
     }
 
     func updateSubtitleLine(index: Int, text: String) {
-        _ = bridge.updateParagraph(index: index, text: text)
-        // No full reload needed, just update the lines array locally for responsiveness
+        if bridge.updateParagraph(index: index, text: text) {
+            if let idx = lines.firstIndex(where: { $0.index == index }) {
+                let old = lines[idx]
+                lines[idx] = SubtitleLine(id: old.id, index: index, start: old.start, end: old.end, text: text, gap: old.gap)
+            }
+        }
+    }
+    
+    func updateSubtitleTimes(index: Int, startMs: Double, endMs: Double) {
+        bridge.updateParagraphTimes(index: index, startMs: startMs, endMs: endMs)
         if let idx = lines.firstIndex(where: { $0.index == index }) {
-            lines[idx] = SubtitleLine(index: index, start: lines[idx].start, end: lines[idx].end, text: text)
+            let old = lines[idx]
+            lines[idx] = SubtitleLine(id: old.id, index: index, start: startMs / 1000.0, end: endMs / 1000.0, text: old.text, gap: old.gap)
         }
     }
     
@@ -458,15 +420,13 @@ struct ContentView: View {
     func syncStart() {
         guard let selId = selection, let line = lines.first(where: { $0.id == selId }) else { return }
         let time = bridge.getVideoTime()
-        bridge.updateParagraphTimes(index: line.index, startMs: time * 1000, endMs: line.end * 1000)
-        loadSubtitle(at: filePath)
+        updateSubtitleTimes(index: line.index, startMs: time * 1000, endMs: line.end * 1000)
     }
     
     func syncEnd() {
         guard let selId = selection, let line = lines.first(where: { $0.id == selId }) else { return }
         let time = bridge.getVideoTime()
-        bridge.updateParagraphTimes(index: line.index, startMs: line.start * 1000, endMs: time * 1000)
-        loadSubtitle(at: filePath)
+        updateSubtitleTimes(index: line.index, startMs: line.start * 1000, endMs: time * 1000)
     }
 
     func performUndo() {
@@ -601,10 +561,13 @@ struct ContentView: View {
         var newLines: [SubtitleLine] = []
         var newTranslations: [Int: String] = [:]
         
+        var lastEnd: Double = 0
         for i in 0..<count {
             if let text = bridge.getParagraphText(index: i) {
                 let times = bridge.getParagraphTimes(index: i)
-                newLines.append(SubtitleLine(index: i, start: times.start, end: times.end, text: text))
+                let gap = i > 0 ? (times.start - lastEnd) : nil
+                newLines.append(SubtitleLine(index: i, start: times.start, end: times.end, text: text, gap: gap))
+                lastEnd = times.end
                 
                 if let trans = bridge.getTranslationText(index: i) {
                     newTranslations[i] = trans
@@ -618,8 +581,9 @@ struct ContentView: View {
 
     func generateWaveform(currentTime: Double) -> NSImage? {
         let width = 800
-        let height = 150
-        if let cgImage = bridge.renderWaveform(width: width, height: height, currentTime: currentTime + waveformOffset, zoom: waveformZoom) {
+        let height = 120
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        if let cgImage = bridge.renderWaveform(width: width, height: height, currentTime: currentTime, zoom: waveformZoom, scale: scale) {
             return NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
         }
         return nil
@@ -643,8 +607,12 @@ struct VideoPlayerView: NSViewRepresentable {
     let bridge: SubtitleBridge
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        // libmpv needs the raw pointer or window handle
-        bridge.setVideoHandle(handle: Unmanaged.passUnretained(view).toOpaque())
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.black.cgColor
+        // On macOS, passing the layer pointer is more reliable for mpv 'wid'
+        if let layer = view.layer {
+            bridge.setVideoHandle(handle: Unmanaged.passUnretained(layer).toOpaque())
+        }
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
@@ -699,29 +667,6 @@ struct FindReplaceView: View {
     }
 }
 
-struct TimeShiftView: View {
-    @Binding var shiftMs: Double
-    @Environment(\.dismiss) var dismiss
-    var onApply: (Double) -> Void
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Bulk Time Shift").font(.headline)
-            VStack(alignment: .leading) {
-                Text("Adjustment (milliseconds)").font(.caption).foregroundColor(.gray)
-                HStack {
-                    TextField("", value: $shiftMs, format: .number).textFieldStyle(.roundedBorder)
-                    Text("ms")
-                }
-            }
-            HStack {
-                Button("Cancel") { dismiss() }
-                Spacer()
-                Button("Apply Shift") { onApply(shiftMs); dismiss() }.buttonStyle(.borderedProminent)
-            }
-        }.padding().frame(width: 300)
-    }
-}
-
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
@@ -733,68 +678,4 @@ struct VisualEffectView: NSViewRepresentable {
         return view
     }
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
-}
-
-struct FixResultsView: View {
-    let count: Int
-    let logLines: [String]
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Image(systemName: "wrench.and.screwdriver.fill")
-                    .font(.title)
-                    .foregroundColor(.orange)
-                Text("Fix Results")
-                    .font(.title2.bold())
-                Spacer()
-                Text("\(count) items fixed")
-                    .font(.caption)
-                    .padding(6)
-                    .background(Color.orange.opacity(0.2))
-                    .cornerRadius(4)
-            }
-            
-            if logLines.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(.green)
-                    Text("Everything looks good!")
-                        .font(.headline)
-                    Text("No common errors were detected in this file.")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(logLines, id: \.self) { log in
-                            HStack(alignment: .top) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .foregroundColor(.blue)
-                                    .font(.caption)
-                                    .padding(.top, 2)
-                                Text(log)
-                                    .font(.system(size: 12, design: .monospaced))
-                            }
-                            .padding(8)
-                            .background(Color.white.opacity(0.03))
-                            .cornerRadius(6)
-                        }
-                    }
-                }
-            }
-            
-            Button("Done") {
-                dismiss()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        }
-        .padding()
-        .frame(width: 500, height: 400)
-    }
 }

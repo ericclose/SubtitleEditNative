@@ -8,13 +8,13 @@ let package = Package(
         .target(
             name: "LibSENative",
             path: "Sources",
-            exclude: ["MainApp.swift", "ContentView.swift", "SettingsView.swift", "AutomationDialogs.swift", "SpellCheckView.swift"]
+            exclude: ["MainApp.swift", "ContentView.swift", "SettingsView.swift", "AutomationDialogs.swift", "SpellCheckView.swift", "EditAreaView.swift", "SubtitleTableView.swift", "FixResultsView.swift", "TimeShiftView.swift"]
         ),
         .executableTarget(
             name: "SENativeApp",
             dependencies: ["LibSENative"],
             path: "Sources",
-            exclude: ["SubtitleBridge.swift", "SubtitleLine.swift", "WaveformRenderer.swift", "AppLogger.swift", "UIExtensions.swift"]
+            exclude: ["SubtitleBridge.swift", "SubtitleLine.swift", "WaveformRenderer.swift", "AppLogger.swift", "UIExtensions.swift", "TimeUtils.swift"]
         ),
         .executableTarget(
             name: "TestRunner",

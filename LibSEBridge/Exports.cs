@@ -764,4 +764,32 @@ public static class NativeExports
         if (count != null) *count = ctx.AudioSamples.Length;
         return ctx.AudioLock.AddrOfPinnedObject();
     }
+
+    [UnmanagedCallersOnly(EntryPoint = "se_insert_paragraph")]
+    public unsafe static int InsertParagraph(IntPtr handle, int index, IntPtr textPtr, double startMs, double endMs)
+    {
+        var ctx = GetContext(handle);
+        if (ctx?.CurrentSubtitle == null) return 0;
+
+        DoPushHistory(handle);
+        string? text = Marshal.PtrToStringUTF8(textPtr) ?? "";
+        var p = new Paragraph(text, startMs, endMs);
+        
+        if (index < 0) ctx.CurrentSubtitle.Paragraphs.Insert(0, p);
+        else if (index >= ctx.CurrentSubtitle.Paragraphs.Count) ctx.CurrentSubtitle.Paragraphs.Add(p);
+        else ctx.CurrentSubtitle.Paragraphs.Insert(index, p);
+        
+        return 1;
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "se_remove_paragraph")]
+    public static int RemoveParagraph(IntPtr handle, int index)
+    {
+        var ctx = GetContext(handle);
+        if (ctx?.CurrentSubtitle == null || index < 0 || index >= ctx.CurrentSubtitle.Paragraphs.Count) return 0;
+
+        DoPushHistory(handle);
+        ctx.CurrentSubtitle.Paragraphs.RemoveAt(index);
+        return 1;
+    }
 }
