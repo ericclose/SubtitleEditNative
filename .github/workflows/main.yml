@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test-dotnet:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    - name: Restore dependencies
+      run: dotnet restore SubtitleEditNative.sln
+    - name: Run .NET Tests
+      run: dotnet test LibSEBridge.Tests/LibSEBridge.Tests.csproj --configuration Release
+
+  build-and-release:
+    needs: test-dotnet
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+    - name: Run Build Dependencies
+      run: brew install ffmpeg mpv
+    - name: Run Swift UI Tests
+      run: swift test
+    - name: Run Packaging Script
+      run: |
+        chmod +x package.sh
+        ./package.sh
+    - name: Upload DMG Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubtitleEditNative-DMG-arm64
+        path: SubtitleEditNative_v*_macOS_arm64.dmg
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: SubtitleEditNative_v*_macOS_arm64.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
