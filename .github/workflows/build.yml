@@ -1,0 +1,37 @@
+name: macOS Build & Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  build:
+    name: Build macOS App
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6.0.2
+
+      - name: Install VLC (for libraries)
+        run: |
+          brew install --cask vlc
+          sudo xattr -rd com.apple.quarantine /Applications/VLC.app || true
+
+      - name: Build & Package (DMG)
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+        run: |
+          chmod +x ./build_dmg.sh
+          ./build_dmg.sh
+
+      - name: Release
+        uses: softprops/action-gh-release@v3.0.0
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            *.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

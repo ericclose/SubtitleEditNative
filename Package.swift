@@ -2,30 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "SENativeApp",
-    platforms: [.macOS(.v13)],
+    name: "MacOSVideoProto",
+    platforms: [
+        .macOS(.v14)
+    ],
+    products: [
+        .executable(name: "MacOSVideoProto", targets: ["MacOSVideoProto"])
+    ],
+    dependencies: [],
     targets: [
-        .target(
-            name: "LibSENative",
-            path: "Sources",
-            exclude: ["MainApp.swift", "ContentView.swift", "SettingsView.swift", "AutomationDialogs.swift", "SpellCheckView.swift", "EditAreaView.swift", "SubtitleTableView.swift", "FixResultsView.swift", "TimeShiftView.swift"]
-        ),
         .executableTarget(
-            name: "SENativeApp",
-            dependencies: ["LibSENative"],
-            path: "Sources",
-            exclude: ["SubtitleBridge.swift", "SubtitleLine.swift", "WaveformRenderer.swift", "AppLogger.swift", "UIExtensions.swift", "TimeUtils.swift"]
-        ),
-        .executableTarget(
-            name: "TestRunner",
-            dependencies: ["LibSENative"],
-            path: "TestRunner",
-            sources: ["main.swift"]
-        ),
-        .testTarget(
-            name: "SENativeAppTests",
-            dependencies: ["LibSENative"],
-            path: "Tests/SENativeAppTests"
-        ),
+            name: "MacOSVideoProto",
+            dependencies: [],
+            path: "Sources/MacOSVideoProto"
+        )
     ]
 )
