@@ -73,8 +73,10 @@ class WaveformExtractor {
         let bytesPerSample = 2 // 16-bit
         let samplesPerPeak = sampleRate / targetPeaksPerSecond
         
-        var peaks = [WavePeak]()
+        var rawPeaks = [(min: Int16, max: Int16)]()
         let totalSamples = data.count / bytesPerSample
+        
+        var globalMax: Int16 = 1 // Avoid division by zero
         
         data.withUnsafeBytes { buffer in
             let int16Samples = buffer.bindMemory(to: Int16.self)
@@ -90,13 +92,22 @@ class WaveformExtractor {
                     if sample > maxVal { maxVal = sample }
                 }
                 
-                peaks.append(WavePeak(
-                    min: Float(minVal) / Float(Int16.max),
-                    max: Float(maxVal) / Float(Int16.max)
-                ))
+                rawPeaks.append((min: minVal, max: maxVal))
+                
+                let absMax = max(abs(Int32(minVal)), abs(Int32(maxVal)))
+                if absMax > globalMax {
+                    globalMax = Int16(absMax)
+                }
             }
         }
         
-        return peaks
+        // Normalize using the global maximum to fill the vertical space
+        let normalizationFactor = Float(globalMax)
+        return rawPeaks.map { peak in
+            WavePeak(
+                min: Float(peak.min) / normalizationFactor,
+                max: Float(peak.max) / normalizationFactor
+            )
+        }
     }
 }
