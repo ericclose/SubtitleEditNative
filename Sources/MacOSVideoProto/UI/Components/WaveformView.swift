@@ -6,61 +6,74 @@ struct WaveformView: View {
     @State private var verticalZoom: Double = 1.0
     @State private var scrollProxy: ScrollViewProxy? = nil
     
-    // Chunk size in seconds
     private let chunkSize: Double = 10.0
+    private let leftMargin: CGFloat = 50.0 
     
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: true) {
-                    let totalWidth = player.duration * pixelsPerSecond
-                    
-                    ZStack(alignment: .topLeading) {
-                        // Background
-                        Color.black.opacity(0.05)
+                    HStack(spacing: 0) {
+                        // 1. Explicit Leading Gutter
+                        Spacer().frame(width: leftMargin)
                         
-                        // Chunked Rendering using LazyHStack
-                        LazyHStack(alignment: .top, spacing: 0) {
-                            let totalChunks = Int(ceil(player.duration / chunkSize))
-                            ForEach(0..<totalChunks, id: \.self) { i in
-                                let startTime = Double(i) * chunkSize
-                                WaveformChunk(
-                                    player: player,
-                                    startTime: startTime,
-                                    duration: chunkSize,
-                                    pixelsPerSecond: pixelsPerSecond,
-                                    verticalZoom: verticalZoom
-                                )
-                                .frame(width: CGFloat(chunkSize * pixelsPerSecond))
+                        ZStack(alignment: .topLeading) {
+                            let totalWidth = player.duration * pixelsPerSecond
+                            
+                            // 2. Waveform Background
+                            Color.black.opacity(0.9)
+                                .frame(width: totalWidth, height: 140)
+                            
+                            // 3. Waveform Chunks
+                            LazyHStack(alignment: .top, spacing: 0) {
+                                let totalChunks = Int(ceil(player.duration / chunkSize))
+                                let samples = player.waveformSamples
+                                ForEach(0..<totalChunks, id: \.self) { i in
+                                    let startTime = Double(i) * chunkSize
+                                    WaveformChunk(
+                                        samples: samples,
+                                        startTime: startTime,
+                                        duration: chunkSize,
+                                        pixelsPerSecond: pixelsPerSecond,
+                                        verticalZoom: verticalZoom
+                                    )
+                                    .frame(width: CGFloat(chunkSize * pixelsPerSecond))
+                                }
                             }
-                        }
-                        
-                        // Subtitle Blocks
-                        ZStack(alignment: .leading) {
-                            ForEach(player.subtitles) { item in
-                                SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond)
+                            
+                            // 4. Subtitle Blocks
+                            ZStack(alignment: .leading) {
+                                ForEach(player.subtitles) { item in
+                                    SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond)
+                                }
                             }
+                            .offset(y: 20)
+                            
+                            // 5. Playhead
+                            Rectangle()
+                                .fill(Color.red)
+                                .frame(width: 2)
+                                .offset(x: CGFloat(player.currentTime * pixelsPerSecond))
+                                .id("playhead")
                         }
-                        .offset(y: 20) // Leave space for ruler
+                        .contentShape(Rectangle())
+                        .gesture(
+                            SpatialTapGesture()
+                                .onEnded { event in
+                                    let time = Double(event.location.x) / pixelsPerSecond
+                                    player.seek(to: max(0, min(time, player.duration)))
+                                }
+                        )
                         
-                        // Playhead (Red Line)
-                        Rectangle()
-                            .fill(Color.red)
-                            .frame(width: 2)
-                            .offset(x: CGFloat(player.currentTime * pixelsPerSecond))
-                            .id("playhead")
+                        // 6. Trailing Gutter
+                        Spacer().frame(width: 50.0) 
                     }
-                    .frame(width: CGFloat(totalWidth), height: 140)
                 }
                 .onAppear {
                     self.scrollProxy = proxy
                 }
-                .onChange(of: player.currentTime) { _, newTime in
-                    if !player.isUserInteracting {
-                        scrollToPlayhead(time: newTime)
-                    }
-                }
-                .frame(height: 120)
+                .frame(height: 160)
+                .background(Color.black)
             }
             
             // Timeline Controls
@@ -86,13 +99,6 @@ struct WaveformView: View {
                     Button { verticalZoom = min(5.0, verticalZoom + 0.2) } label: { Image(systemName: "plus.circle") }
                 }
                 
-                Button {
-                    scrollToPlayhead(time: player.currentTime)
-                } label: {
-                    Image(systemName: "scope")
-                }
-                .buttonStyle(.borderless)
-                
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -100,54 +106,51 @@ struct WaveformView: View {
             .background(Color(NSColor.windowBackgroundColor))
         }
     }
-    
-    private func scrollToPlayhead(time: Double) {
-        withAnimation(.linear(duration: 0.1)) {
-            scrollProxy?.scrollTo("playhead", anchor: .center)
-        }
-    }
 }
 
-/// Renders a slice of the waveform and time ruler
-struct WaveformChunk: View {
-    @ObservedObject var player: VLCPlayer
+struct WaveformChunk: View, Equatable {
+    let samples: [WavePeak]
     let startTime: Double
     let duration: Double
     let pixelsPerSecond: Double
     let verticalZoom: Double
     
+    static func == (lhs: WaveformChunk, rhs: WaveformChunk) -> Bool {
+        return lhs.startTime == rhs.startTime &&
+               lhs.duration == rhs.duration &&
+               lhs.pixelsPerSecond == rhs.pixelsPerSecond &&
+               lhs.verticalZoom == rhs.verticalZoom &&
+               lhs.samples.count == rhs.samples.count
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
-            // Ruler part of the chunk
             Canvas { context, size in
                 let end = startTime + duration
                 for s in stride(from: startTime, to: end, by: 1.0) {
                     let relativeX = CGFloat((s - startTime) * pixelsPerSecond)
                     
-                    // Major tick
                     var path = Path()
-                    path.move(to: CGPoint(x: relativeX, y: 10))
+                    path.move(to: CGPoint(x: relativeX, y: 12))
                     path.addLine(to: CGPoint(x: relativeX, y: 20))
-                    context.stroke(path, with: .color(.secondary), lineWidth: 1)
+                    context.stroke(path, with: .color(.gray), lineWidth: 1)
                     
-                    // Label every 5 seconds
                     if Int(s) % 5 == 0 {
                         let timeStr = formatTime(s)
-                        context.draw(Text(timeStr).font(.system(size: 8)).foregroundColor(.secondary), at: CGPoint(x: relativeX + 2, y: 5))
+                        context.draw(
+                            Text(timeStr).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
+                            at: CGPoint(x: relativeX + 20, y: 6)
+                        )
                     }
                 }
             }
             .frame(height: 20)
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(Color.white.opacity(0.05))
             
-            // Waveform part of the chunk
             Canvas { context, size in
-                guard !player.waveformSamples.isEmpty else { return }
-                
+                guard !samples.isEmpty else { return }
                 let height = size.height
                 let midY = height / 2
-                let samples = player.waveformSamples
-                
                 let peaksPerSecond = 100.0
                 let samplesPerPixel = peaksPerSecond / pixelsPerSecond
                 let startSampleIdx = Int(startTime * peaksPerSecond)
@@ -164,7 +167,7 @@ struct WaveformChunk: View {
                     path.move(to: CGPoint(x: x, y: topY))
                     path.addLine(to: CGPoint(x: x, y: bottomY))
                 }
-                context.stroke(path, with: .color(.blue.opacity(0.6)), lineWidth: 1)
+                context.stroke(path, with: .color(.blue.opacity(0.8)), lineWidth: 1)
             }
         }
     }
@@ -225,6 +228,7 @@ struct SubtitleBlock: View {
         }
         .frame(width: max(0, width), height: 100)
         .offset(x: xStart, y: 10)
+        .id(item.id)
         .onTapGesture {
             player.selectedSubtitleId = item.id
             player.seek(to: item.startTime.totalSeconds)
