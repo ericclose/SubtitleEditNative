@@ -116,7 +116,7 @@ struct WaveformView: View {
         }
         .onChange(of: player.selectedSubtitleId) { _, newId in
             if let selected = player.subtitles.first(where: { $0.id == newId }) {
-                updateScrollOffset(for: selected.startTime)
+                updateScrollOffset(for: selected.startTime.totalSeconds)
             }
         }
     }
@@ -157,7 +157,7 @@ struct WaveformView: View {
 }
 
 struct SubtitleBlock: View {
-    let item: SubtitleItem
+    let item: Paragraph
     @ObservedObject var player: VLCPlayer
     let zoomFactor: Double
     let scrollOffset: Double
@@ -176,11 +176,11 @@ struct SubtitleBlock: View {
         let visibleDuration = player.duration / zoomFactor
         let endTimeVisible = startTimeVisible + visibleDuration
         
-        if item.endTime < startTimeVisible || item.startTime > endTimeVisible {
+        if item.endTime.totalSeconds < startTimeVisible || item.startTime.totalSeconds > endTimeVisible {
             EmptyView()
         } else {
-            let xStart = max(0, CGFloat((item.startTime - startTimeVisible) / visibleDuration) * totalWidth)
-            let xEnd = min(totalWidth, CGFloat((item.endTime - startTimeVisible) / visibleDuration) * totalWidth)
+            let xStart = max(0, CGFloat((item.startTime.totalSeconds - startTimeVisible) / visibleDuration) * totalWidth)
+            let xEnd = min(totalWidth, CGFloat((item.endTime.totalSeconds - startTimeVisible) / visibleDuration) * totalWidth)
             let width = xEnd - xStart
             
             ZStack {
@@ -214,7 +214,7 @@ struct SubtitleBlock: View {
             .offset(x: xStart, y: 10)
             .onTapGesture {
                 player.selectedSubtitleId = item.id
-                player.seek(to: item.startTime + 0.001)
+                player.seek(to: item.startTime.totalSeconds + 0.001)
             }
             .gesture(dragGesture(mode: .moving))
         }
@@ -225,8 +225,8 @@ struct SubtitleBlock: View {
             .onChanged { value in
                 if dragMode == .none {
                     dragMode = mode
-                    initialStartTime = item.startTime
-                    initialEndTime = item.endTime
+                    initialStartTime = item.startTime.totalSeconds
+                    initialEndTime = item.endTime.totalSeconds
                     player.isUserInteracting = true
                 }
                 
@@ -238,23 +238,23 @@ struct SubtitleBlock: View {
                     let videoDuration = player.duration > 0 ? player.duration : 3600
                     
                     // Find neighbors for collision detection
-                    let sortedSubs = player.subtitles.sorted { $0.startTime < $1.startTime }
+                    let sortedSubs = player.subtitles.sorted { $0.startTime.totalSeconds < $1.startTime.totalSeconds }
                     let myIndex = sortedSubs.firstIndex(where: { $0.id == item.id }) ?? 0
                     
-                    let minBound: Double = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime : 0
-                    let maxBound: Double = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime : videoDuration
+                    let minBound: Double = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds : 0
+                    let maxBound: Double = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds : videoDuration
                     
                     switch dragMode {
                     case .moving:
                         let newStart = max(minBound, min(initialStartTime + deltaSeconds, maxBound - itemDuration))
-                        player.subtitles[index].startTime = newStart
-                        player.subtitles[index].endTime = newStart + itemDuration
+                        player.subtitles[index].startTime.totalSeconds = newStart
+                        player.subtitles[index].endTime.totalSeconds = newStart + itemDuration
                     case .resizingLeft:
                         let newStart = max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.1))
-                        player.subtitles[index].startTime = newStart
+                        player.subtitles[index].startTime.totalSeconds = newStart
                     case .resizingRight:
                         let newEnd = min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.1))
-                        player.subtitles[index].endTime = newEnd
+                        player.subtitles[index].endTime.totalSeconds = newEnd
                     case .none:
                         break
                     }

@@ -10,8 +10,8 @@ class VLCPlayer: ObservableObject {
     @Published var playbackSpeed: Double = 1.0
     @Published var currentFileName: String? = nil
     @Published var waveformSamples: [WavePeak] = []
-    @Published var subtitles: [SubtitleItem] = []
-    @Published var selectedSubtitleId: UUID? = nil
+    @Published var subtitles: [Paragraph] = []
+    @Published var selectedSubtitleId: String? = nil
     @Published var isMuted: Bool = false
     @Published var isUserInteracting: Bool = false
     
@@ -76,7 +76,7 @@ class VLCPlayer: ObservableObject {
         bridge.position = max(0.0, min(1.0, targetPosition))
         
         // Immediate update of selected subtitle
-        if let activeSub = subtitles.first(where: { time >= $0.startTime && time <= $0.endTime }) {
+        if let activeSub = subtitles.first(where: { time >= $0.startTime.totalSeconds && time <= $0.endTime.totalSeconds }) {
             selectedSubtitleId = activeSub.id
         } else {
             selectedSubtitleId = nil
@@ -117,7 +117,7 @@ class VLCPlayer: ObservableObject {
                 }
                 
                 // Update selected subtitle based on current time
-                if let activeSub = self.subtitles.first(where: { self.currentTime >= $0.startTime && self.currentTime <= $0.endTime }) {
+                if let activeSub = self.subtitles.first(where: { self.currentTime >= $0.startTime.totalSeconds && self.currentTime <= $0.endTime.totalSeconds }) {
                     if self.selectedSubtitleId != activeSub.id {
                         self.selectedSubtitleId = activeSub.id
                     }

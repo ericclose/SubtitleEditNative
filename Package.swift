@@ -15,6 +15,11 @@ let package = Package(
             name: "MacOSVideoProto",
             dependencies: [],
             path: "Sources/MacOSVideoProto"
+        ),
+        .testTarget(
+            name: "MacOSVideoProtoTests",
+            dependencies: ["MacOSVideoProto"],
+            path: "Tests/MacOSVideoProtoTests"
         )
     ]
 )

@@ -14,7 +14,7 @@ struct SubtitleListView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(player.selectedSubtitleId == item.id ? Color.accentColor.opacity(0.2) : Color.clear)
                     .onTapGesture(count: 2) {
-                        player.seek(to: item.startTime + 0.001)
+                        player.seek(to: item.startTime.totalSeconds + 0.001)
                     }
             }
             .listStyle(.plain)
@@ -40,25 +40,25 @@ struct HeaderView: View {
 }
 
 struct SubtitleRow: View {
-    let item: SubtitleItem
+    let item: Paragraph
     @ObservedObject var player: VLCPlayer
     
     var body: some View {
         HStack(spacing: 0) {
-            Text("\(item.index)")
+            Text("\(item.number)")
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.secondary)
                 .frame(width: 40, alignment: .leading)
             
-            Text(player.formatTime(item.startTime))
+            Text(item.startTime.toDisplayString())
                 .font(.system(.caption, design: .monospaced))
                 .frame(width: 90, alignment: .leading)
             
-            Text(player.formatTime(item.endTime))
+            Text(item.endTime.toDisplayString())
                 .font(.system(.caption, design: .monospaced))
                 .frame(width: 90, alignment: .leading)
             
-            Text(String(format: "%.3f", item.duration))
+            Text(String(format: "%.3f", item.durationTotalSeconds))
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.secondary)
                 .frame(width: 60, alignment: .leading)

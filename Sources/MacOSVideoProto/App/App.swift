@@ -42,12 +42,19 @@ struct MacOSVideoProtoApp: App {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "srt")!]
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "srt")!,
+            UTType(filenameExtension: "vtt")!,
+            UTType(filenameExtension: "ass")!,
+            UTType(filenameExtension: "ssa")!
+        ]
         
         if panel.runModal() == .OK {
             if let url = panel.url {
                 if let content = try? String(contentsOf: url) {
-                    player.subtitles = SubtitleParser.parseSRT(content: content)
+                    if let subtitle = SubtitleParser.parse(content: content, fileName: url.lastPathComponent) {
+                        player.subtitles = subtitle.paragraphs
+                    }
                 }
             }
         }
