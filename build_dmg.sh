@@ -31,12 +31,22 @@ else
     echo "Warning: AppIcon.icns not found in Resources/!"
 fi
 
-# 4. Integrate VLCKit and Plugins
-echo "Step 4: Integrating VLCKit dependencies..."
+# 4. Integrate VLCKit, FFmpeg and Plugins
+echo "Step 4: Integrating dependencies (VLCKit & FFmpeg)..."
 VLC_PATH="/Applications/VLC.app/Contents/MacOS"
 cp "${VLC_PATH}/lib/libvlc.dylib" "${FRAMEWORKS_DIR}/"
 cp "${VLC_PATH}/lib/libvlccore.dylib" "${FRAMEWORKS_DIR}/"
 cp -R "${VLC_PATH}/plugins/" "${PLUGINS_DIR}/"
+
+# Find and copy ffmpeg
+FFMPEG_PATH=$(which ffmpeg)
+if [ -n "$FFMPEG_PATH" ]; then
+    cp "$FFMPEG_PATH" "${MACOS_DIR}/ffmpeg"
+    echo "FFmpeg bundled from $FFMPEG_PATH"
+else
+    echo "Error: ffmpeg not found in PATH!"
+    exit 1
+fi
 
 # 5. Fix Library Paths and Re-sign
 echo "Step 5: Fixing Paths and Re-signing..."
@@ -49,6 +59,7 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "${MACOS_DIR}/${AP
 
 codesign --force --sign - "${FRAMEWORKS_DIR}/libvlccore.dylib"
 codesign --force --sign - "${FRAMEWORKS_DIR}/libvlc.dylib"
+codesign --force --sign - "${MACOS_DIR}/ffmpeg"
 codesign --force --sign - "${MACOS_DIR}/${APP_NAME}"
 
 # Trigger Finder Icon Refresh

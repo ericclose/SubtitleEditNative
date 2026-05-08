@@ -15,8 +15,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6.0.2
 
-      - name: Install VLC (for libraries)
+      - name: Install Dependencies (VLC & FFmpeg)
         run: |
+          brew install ffmpeg
           brew install --cask vlc
           sudo xattr -rd com.apple.quarantine /Applications/VLC.app || true
 

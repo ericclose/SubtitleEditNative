@@ -11,8 +11,13 @@ class WaveformExtractor {
                 // 1. 使用 FFmpeg 提取 16-bit Mono 24kHz PCM
                 let process = Process()
                 
-                // Try to find ffmpeg in common locations
-                let paths = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]
+                // Try to find ffmpeg in bundled location, then common system paths
+                var paths = [String]()
+                if let bundledPath = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("ffmpeg").path {
+                    paths.append(bundledPath)
+                }
+                paths.append(contentsOf: ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"])
+                
                 var foundPath: String? = nil
                 for path in paths {
                     if FileManager.default.fileExists(atPath: path) {
