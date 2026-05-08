@@ -5,31 +5,53 @@ struct ContentView: View {
     
     var body: some View {
         VSplitView {
-            // Preview Area
-            ZStack(alignment: .bottom) {
-                VLCVideoView(player: player)
-                    .overlay(
-                        VStack(spacing: 12) {
-                            if player.currentFileName == nil {
-                                Image(systemName: "video.badge.plus")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.white.opacity(0.15))
-                                
-                                Text("No Video Loaded")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.4))
-                                
-                                Text("Press ⌘O to import")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.white.opacity(0.2))
-                            }
-                        }
-                    )
+            HSplitView {
+                // Subtitle List Area
+                VStack(spacing: 0) {
+                    HStack {
+                        Label("Subtitles", systemImage: "list.dash")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(player.subtitles.count) items")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(10)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    
+                    SubtitleListView(player: player)
+                }
+                .frame(minWidth: 400, maxWidth: .infinity)
+                .background(Color(NSColor.windowBackgroundColor))
                 
-                FloatingControlBar(player: player)
-                    .padding(.bottom, 30)
+                // Preview Area
+                ZStack(alignment: .bottom) {
+                    VLCVideoView(player: player)
+                        .overlay(
+                            VStack(spacing: 12) {
+                                if player.currentFileName == nil {
+                                    Image(systemName: "video.badge.plus")
+                                        .font(.system(size: 60))
+                                        .foregroundColor(.white.opacity(0.15))
+                                    
+                                    Text("No Video Loaded")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.4))
+                                    
+                                    Text("Press ⌘O to import video")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white.opacity(0.2))
+                                }
+                            }
+                        )
+                    
+                    FloatingControlBar(player: player)
+                        .padding(.bottom, 30)
+                }
+                .frame(minWidth: 400, minHeight: 300)
             }
-            .frame(minHeight: 400)
+            .layoutPriority(1)
             
             // Timeline Area
             VStack(alignment: .leading, spacing: 12) {
@@ -40,7 +62,7 @@ struct ContentView: View {
                     
                     Spacer()
                     
-                    Text("\(formatTime(player.currentTime)) / \(formatTime(player.duration))")
+                    Text("\(player.formatTime(player.currentTime)) / \(player.formatTime(player.duration))")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
@@ -48,11 +70,11 @@ struct ContentView: View {
                 .padding(.top, 16)
                 
                 WaveformView(player: player)
-                    .frame(height: 120)
+                    .frame(height: 180) // Slightly taller
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)
             }
-            .frame(height: 200)
+            .frame(height: 240)
             .background(Color(NSColor.windowBackgroundColor))
         }
         .preferredColorScheme(.dark)

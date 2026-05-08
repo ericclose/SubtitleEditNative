@@ -10,7 +10,10 @@ class VLCPlayer: ObservableObject {
     @Published var playbackSpeed: Double = 1.0
     @Published var currentFileName: String? = nil
     @Published var waveformSamples: [Float] = []
+    @Published var subtitles: [SubtitleItem] = []
+    @Published var selectedSubtitleId: UUID? = nil
     @Published var isMuted: Bool = false
+    @Published var isUserInteracting: Bool = false
     
     private var lastVolume: Int = 100
     private var timer: Timer?
@@ -72,6 +75,13 @@ class VLCPlayer: ObservableObject {
         let targetPosition = Float(time / duration)
         bridge.position = max(0.0, min(1.0, targetPosition))
         
+        // Immediate update of selected subtitle
+        if let activeSub = subtitles.first(where: { time >= $0.startTime && time <= $0.endTime }) {
+            selectedSubtitleId = activeSub.id
+        } else {
+            selectedSubtitleId = nil
+        }
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isSeeking = false
         }
@@ -85,7 +95,7 @@ class VLCPlayer: ObservableObject {
     private func startSyncTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self = self, !self.isSeeking else { return }
+                guard let self = self, !self.isSeeking, !self.isUserInteracting else { return }
                 
                 let vlcState = self.bridge.state
                 let newTime = self.bridge.time
@@ -105,7 +115,27 @@ class VLCPlayer: ObservableObject {
                 } else {
                     self.isPlaying = self.bridge.isPlaying
                 }
+                
+                // Update selected subtitle based on current time
+                if let activeSub = self.subtitles.first(where: { self.currentTime >= $0.startTime && self.currentTime <= $0.endTime }) {
+                    if self.selectedSubtitleId != activeSub.id {
+                        self.selectedSubtitleId = activeSub.id
+                    }
+                }
             }
+        }
+    }
+    
+    func formatTime(_ time: Double) -> String {
+        let hours = Int(time) / 3600
+        let minutes = (Int(time) % 3600) / 60
+        let seconds = Int(time) % 60
+        let ms = Int((time.truncatingRemainder(dividingBy: 1)) * 1000)
+        
+        if hours > 0 {
+            return String(format: "%02d:%02d:%02d.%03d", hours, minutes, seconds, ms)
+        } else {
+            return String(format: "%02d:%02d.%03d", minutes, seconds, ms)
         }
     }
 }

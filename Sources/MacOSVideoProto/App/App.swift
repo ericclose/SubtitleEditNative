@@ -13,14 +13,19 @@ struct MacOSVideoProtoApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open Video...") {
-                    openFilePicker()
+                    openVideoPicker()
                 }
                 .keyboardShortcut("o", modifiers: .command)
+                
+                Button("Open Subtitles...") {
+                    openSubtitlePicker()
+                }
+                .keyboardShortcut("i", modifiers: .command)
             }
         }
     }
     
-    private func openFilePicker() {
+    private func openVideoPicker() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -32,4 +37,20 @@ struct MacOSVideoProtoApp: App {
             }
         }
     }
+    
+    private func openSubtitlePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "srt")!]
+        
+        if panel.runModal() == .OK {
+            if let url = panel.url {
+                if let content = try? String(contentsOf: url) {
+                    player.subtitles = SubtitleParser.parseSRT(content: content)
+                }
+            }
+        }
+    }
 }
+import UniformTypeIdentifiers
