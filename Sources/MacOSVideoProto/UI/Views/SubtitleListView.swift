@@ -4,51 +4,71 @@ struct SubtitleListView: View {
     @ObservedObject var player: VLCPlayer
     
     var body: some View {
-        Table(player.subtitles, selection: $player.selectedSubtitleId) {
-            TableColumn("#") { item in
-                Text("\(item.index)")
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-            .width(40)
+        VStack(spacing: 0) {
+            // Table Header
+            HeaderView()
             
-            TableColumn("Start") { item in
-                Text(player.formatTime(item.startTime))
-                    .font(.system(.caption, design: .monospaced))
+            List(player.subtitles, selection: $player.selectedSubtitleId) { item in
+                SubtitleRow(item: item, player: player)
+                    .tag(item.id)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(player.selectedSubtitleId == item.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                    .onTapGesture(count: 2) {
+                        player.seek(to: item.startTime + 0.001)
+                    }
             }
-            .width(90)
+            .listStyle(.plain)
+        }
+    }
+}
+
+struct HeaderView: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("#").frame(width: 40, alignment: .leading)
+            Text("Start").frame(width: 90, alignment: .leading)
+            Text("End").frame(width: 90, alignment: .leading)
+            Text("Duration").frame(width: 60, alignment: .leading)
+            Text("Text").frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.system(size: 11, weight: .bold))
+        .foregroundColor(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+struct SubtitleRow: View {
+    let item: SubtitleItem
+    @ObservedObject var player: VLCPlayer
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("\(item.index)")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .leading)
             
-            TableColumn("End") { item in
-                Text(player.formatTime(item.endTime))
-                    .font(.system(.caption, design: .monospaced))
-            }
-            .width(90)
+            Text(player.formatTime(item.startTime))
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 90, alignment: .leading)
             
-            TableColumn("Duration") { item in
-                Text(String(format: "%.3f", item.duration))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-            .width(60)
+            Text(player.formatTime(item.endTime))
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 90, alignment: .leading)
             
-            TableColumn("Text") { item in
-                Text(item.text)
-                    .lineLimit(2)
-            }
+            Text(String(format: "%.3f", item.duration))
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 60, alignment: .leading)
+            
+            Text(item.text)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .onChange(of: player.selectedSubtitleId) { _, newId in
-            // Selection sync
-        }
-        .onTapGesture(count: 2) {
-            if let selectedId = player.selectedSubtitleId,
-               let selected = player.subtitles.first(where: { $0.id == selectedId }) {
-                player.seek(to: selected.startTime)
-            }
-        }
-        .contextMenu {
-            Button("Delete") {
-                // Delete logic
-            }
-        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }

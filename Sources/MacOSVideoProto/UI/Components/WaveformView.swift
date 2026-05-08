@@ -107,6 +107,37 @@ struct WaveformView: View {
             }
             .padding(.top, 4)
         }
+        .onChange(of: player.currentTime) { _, newTime in
+            if !player.isUserInteracting {
+                updateScrollOffset(for: newTime)
+            }
+        }
+        .onChange(of: player.selectedSubtitleId) { _, newId in
+            if let selected = player.subtitles.first(where: { $0.id == newId }) {
+                updateScrollOffset(for: selected.startTime)
+            }
+        }
+    }
+    
+    private func updateScrollOffset(for time: Double) {
+        guard zoomFactor > 1.0 else { 
+            scrollOffset = 0
+            return 
+        }
+        
+        let visibleDuration = player.duration / zoomFactor
+        let startTime = scrollOffset * player.duration
+        let endTime = startTime + visibleDuration
+        
+        // If playhead is outside the visible area, or approaching edges (within 10%)
+        let padding = visibleDuration * 0.1
+        if time < (startTime + padding) || time > (endTime - padding) {
+            // Center the time
+            let newStart = max(0, min(time - (visibleDuration / 2), player.duration - visibleDuration))
+            withAnimation(.easeInOut(duration: 0.3)) {
+                scrollOffset = newStart / player.duration
+            }
+        }
     }
     
     private func isVisible(time: Double) -> Bool {
@@ -181,7 +212,7 @@ struct SubtitleBlock: View {
             .offset(x: xStart, y: 10)
             .onTapGesture {
                 player.selectedSubtitleId = item.id
-                player.seek(to: item.startTime)
+                player.seek(to: item.startTime + 0.001)
             }
             .gesture(dragGesture(mode: .moving))
         }
