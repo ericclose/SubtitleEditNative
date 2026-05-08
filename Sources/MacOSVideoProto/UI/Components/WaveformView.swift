@@ -30,14 +30,16 @@ struct WaveformView: View {
                         let step = width / CGFloat(visibleSamples.count)
                         
                         var path = Path()
-                        for (index, sample) in visibleSamples.enumerated() {
+                        for (index, peak) in visibleSamples.enumerated() {
                             let x = CGFloat(index) * step
-                            let h = CGFloat(sample) * midY * 0.8 * verticalZoom // Apply vertical zoom
-                            path.move(to: CGPoint(x: x, y: midY - h))
-                            path.addLine(to: CGPoint(x: x, y: midY + h))
+                            let topY = midY - (CGFloat(peak.max) * midY * 0.9 * verticalZoom)
+                            let bottomY = midY - (CGFloat(peak.min) * midY * 0.9 * verticalZoom)
+                            
+                            path.move(to: CGPoint(x: x, y: topY))
+                            path.addLine(to: CGPoint(x: x, y: bottomY))
                         }
                         
-                        context.stroke(path, with: .color(.blue.opacity(0.4)), lineWidth: 1)
+                        context.stroke(path, with: .color(.blue.opacity(0.6)), lineWidth: 1)
                     }
                     
                     // Subtitle Blocks

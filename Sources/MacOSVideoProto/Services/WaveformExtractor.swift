@@ -2,44 +2,59 @@ import Foundation
 import AVFoundation
 
 class WaveformExtractor {
-    /// 提取音频采样点，全面对齐 Swift 6 并发安全标准
-    static func extract(from url: URL, targetCount: Int = 2000, completion: @escaping @Sendable ([Float]) -> Void) {
-        let asset = AVURLAsset(url: url)
+    /// 提取音频采样点，使用 FFmpeg 对齐 Subtitle Edit 逻辑
+    static func extract(from url: URL, completion: @escaping @Sendable ([WavePeak]) -> Void) {
+        let tempWavURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         
         Task {
             do {
-                // 加载轨道信息
-                let tracks = try await asset.loadTracks(withMediaType: .audio)
-                guard let track = tracks.first else {
+                // 1. 使用 FFmpeg 提取 16-bit Mono 24kHz PCM
+                let process = Process()
+                
+                // Try to find ffmpeg in common locations
+                let paths = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]
+                var foundPath: String? = nil
+                for path in paths {
+                    if FileManager.default.fileExists(atPath: path) {
+                        foundPath = path
+                        break
+                    }
+                }
+                
+                // Fallback to searching in PATH if not found in common absolute paths
+                process.executableURL = URL(fileURLWithPath: foundPath ?? "/usr/bin/env")
+                if foundPath == nil {
+                    process.arguments = ["ffmpeg"]
+                } else {
+                    process.arguments = []
+                }
+                
+                process.arguments! += [
+                    "-i", url.path,
+                    "-vn",
+                    "-ac", "1",
+                    "-ar", "24000",
+                    "-f", "wav",
+                    "-y", // Overwrite output
+                    tempWavURL.path
+                ]
+                
+                try process.run()
+                process.waitUntilExit()
+                
+                guard process.terminationStatus == 0 else {
+                    print("FFmpeg failed with status: \(process.terminationStatus)")
                     completion([])
                     return
                 }
                 
-                let reader = try AVAssetReader(asset: asset)
-                let outputSettings: [String: Any] = [
-                    AVFormatIDKey: kAudioFormatLinearPCM,
-                    AVLinearPCMBitDepthKey: 16,
-                    AVLinearPCMIsFloatKey: false,
-                    AVLinearPCMIsBigEndianKey: false,
-                    AVLinearPCMIsNonInterleaved: false
-                ]
+                // 2. 读取生成的 WAV 并计算 Peaks (100 peaks per second)
+                let data = try Data(contentsOf: tempWavURL)
+                let result = self.generatePeaks(from: data, sampleRate: 24000, targetPeaksPerSecond: 100)
                 
-                let output = AVAssetReaderTrackOutput(track: track, outputSettings: outputSettings)
-                reader.add(output)
-                reader.startReading()
+                // 清理临时文件
+                try? FileManager.default.removeItem(at: tempWavURL)
                 
-                var samples = [Int16]()
-                while let buffer = output.copyNextSampleBuffer() {
-                    if let blockBuffer = CMSampleBufferGetDataBuffer(buffer) {
-                        let length = CMBlockBufferGetDataLength(blockBuffer)
-                        var data = [Int16](repeating: 0, count: length / 2)
-                        CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: &data)
-                        samples.append(contentsOf: data)
-                    }
-                }
-                
-                // 执行降采样逻辑
-                let result = self.downsample(samples: samples, targetCount: targetCount)
                 completion(result)
                 
             } catch {
@@ -49,24 +64,34 @@ class WaveformExtractor {
         }
     }
     
-    private static func downsample(samples: [Int16], targetCount: Int) -> [Float] {
-        guard samples.count > targetCount else {
-            return samples.map { Float(abs($0)) / Float(Int16.max) }
-        }
+    private static func generatePeaks(from data: Data, sampleRate: Int, targetPeaksPerSecond: Int) -> [WavePeak] {
+        let bytesPerSample = 2 // 16-bit
+        let samplesPerPeak = sampleRate / targetPeaksPerSecond
         
-        let bucketSize = samples.count / targetCount
-        var result = [Float]()
+        var peaks = [WavePeak]()
+        let totalSamples = data.count / bytesPerSample
         
-        for i in 0..<targetCount {
-            let start = i * bucketSize
-            let end = min(start + bucketSize, samples.count)
-            var maxVal: Int16 = 0
-            for j in start..<end {
-                maxVal = max(maxVal, abs(samples[j]))
+        data.withUnsafeBytes { buffer in
+            let int16Samples = buffer.bindMemory(to: Int16.self)
+            
+            for i in stride(from: 0, to: totalSamples, by: samplesPerPeak) {
+                let end = min(i + samplesPerPeak, totalSamples)
+                var minVal: Int16 = 0
+                var maxVal: Int16 = 0
+                
+                for j in i..<end {
+                    let sample = int16Samples[j]
+                    if sample < minVal { minVal = sample }
+                    if sample > maxVal { maxVal = sample }
+                }
+                
+                peaks.append(WavePeak(
+                    min: Float(minVal) / Float(Int16.max),
+                    max: Float(maxVal) / Float(Int16.max)
+                ))
             }
-            result.append(Float(maxVal) / Float(Int16.max))
         }
         
-        return result
+        return peaks
     }
 }

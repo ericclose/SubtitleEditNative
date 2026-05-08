@@ -9,7 +9,7 @@ class VLCPlayer: ObservableObject {
     @Published var duration: Double = 0
     @Published var playbackSpeed: Double = 1.0
     @Published var currentFileName: String? = nil
-    @Published var waveformSamples: [Float] = []
+    @Published var waveformSamples: [WavePeak] = []
     @Published var subtitles: [SubtitleItem] = []
     @Published var selectedSubtitleId: UUID? = nil
     @Published var isMuted: Bool = false
