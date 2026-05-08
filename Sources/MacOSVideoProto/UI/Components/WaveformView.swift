@@ -4,44 +4,67 @@ struct WaveformView: View {
     @ObservedObject var player: VLCPlayer
     @State private var pixelsPerSecond: Double = 100.0
     @State private var verticalZoom: Double = 1.0
+    @State private var scrollProxy: ScrollViewProxy? = nil
+    
+    // Chunk size in seconds
+    private let chunkSize: Double = 10.0
     
     var body: some View {
         VStack(spacing: 0) {
-            // Time Ruler
-            TimeRuler(duration: player.duration, pixelsPerSecond: pixelsPerSecond)
-                .frame(height: 20)
-                .background(Color(NSColor.controlBackgroundColor))
-            
-            ScrollView(.horizontal, showsIndicators: true) {
-                ZStack(alignment: .leading) {
-                    // Background
-                    Color.black.opacity(0.05)
-                    
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: true) {
                     let totalWidth = player.duration * pixelsPerSecond
                     
-                    // Waveform Canvas
-                    WaveformCanvas(player: player, pixelsPerSecond: pixelsPerSecond, verticalZoom: verticalZoom)
-                        .frame(width: CGFloat(totalWidth))
-                    
-                    // Subtitle Blocks
-                    ZStack(alignment: .leading) {
-                        ForEach(player.subtitles) { item in
-                            SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond)
+                    ZStack(alignment: .topLeading) {
+                        // Background
+                        Color.black.opacity(0.05)
+                        
+                        // Chunked Rendering using LazyHStack
+                        LazyHStack(alignment: .top, spacing: 0) {
+                            let totalChunks = Int(ceil(player.duration / chunkSize))
+                            ForEach(0..<totalChunks, id: \.self) { i in
+                                let startTime = Double(i) * chunkSize
+                                WaveformChunk(
+                                    player: player,
+                                    startTime: startTime,
+                                    duration: chunkSize,
+                                    pixelsPerSecond: pixelsPerSecond,
+                                    verticalZoom: verticalZoom
+                                )
+                                .frame(width: CGFloat(chunkSize * pixelsPerSecond))
+                            }
                         }
+                        
+                        // Subtitle Blocks
+                        ZStack(alignment: .leading) {
+                            ForEach(player.subtitles) { item in
+                                SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond)
+                            }
+                        }
+                        .offset(y: 20) // Leave space for ruler
+                        
+                        // Playhead (Red Line)
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2)
+                            .offset(x: CGFloat(player.currentTime * pixelsPerSecond))
+                            .id("playhead")
                     }
-                    
-                    // Playhead (Red Line)
-                    Rectangle()
-                        .fill(Color.red)
-                        .frame(width: 2)
-                        .offset(x: CGFloat(player.currentTime * pixelsPerSecond))
+                    .frame(width: CGFloat(totalWidth), height: 140)
+                }
+                .onAppear {
+                    self.scrollProxy = proxy
+                }
+                .onChange(of: player.currentTime) { _, newTime in
+                    if !player.isUserInteracting {
+                        scrollToPlayhead(time: newTime)
+                    }
                 }
                 .frame(height: 120)
             }
             
             // Timeline Controls
             HStack(spacing: 16) {
-                // Horizontal Zoom (Pixels per second)
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.left.and.right")
                         .foregroundColor(.secondary)
@@ -50,14 +73,10 @@ struct WaveformView: View {
                         .frame(width: 100)
                     Button { pixelsPerSecond = min(500.0, pixelsPerSecond + 10.0) } label: { Image(systemName: "plus.circle") }
                     Text("\(Int(pixelsPerSecond)) px/s").font(.caption2).monospacedDigit()
-                    Button("Reset") { pixelsPerSecond = 100.0 }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
                 }
                 
                 Divider().frame(height: 16)
                 
-                // Vertical Zoom (Amplitude)
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.up.and.down")
                         .foregroundColor(.secondary)
@@ -65,10 +84,14 @@ struct WaveformView: View {
                     Slider(value: $verticalZoom, in: 0.1...5.0)
                         .frame(width: 80)
                     Button { verticalZoom = min(5.0, verticalZoom + 0.2) } label: { Image(systemName: "plus.circle") }
-                    Button("Reset") { verticalZoom = 1.0 }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
                 }
+                
+                Button {
+                    scrollToPlayhead(time: player.currentTime)
+                } label: {
+                    Image(systemName: "scope")
+                }
+                .buttonStyle(.borderless)
                 
                 Spacer()
             }
@@ -77,60 +100,71 @@ struct WaveformView: View {
             .background(Color(NSColor.windowBackgroundColor))
         }
     }
-}
-
-struct WaveformCanvas: View {
-    @ObservedObject var player: VLCPlayer
-    let pixelsPerSecond: Double
-    let verticalZoom: Double
     
-    var body: some View {
-        Canvas { context, size in
-            guard !player.waveformSamples.isEmpty else { return }
-            
-            let height = size.height
-            let midY = height / 2
-            let samples = player.waveformSamples
-            let peaksPerSecond = 100.0
-            let samplesPerPixel = peaksPerSecond / pixelsPerSecond
-            
-            var path = Path()
-            for x in stride(from: 0, to: size.width, by: 1) {
-                let sampleIdx = Int(Double(x) * samplesPerPixel)
-                guard sampleIdx < samples.count else { break }
-                
-                let peak = samples[sampleIdx]
-                let topY = midY - (CGFloat(peak.max) * midY * verticalZoom)
-                let bottomY = midY - (CGFloat(peak.min) * midY * verticalZoom)
-                
-                path.move(to: CGPoint(x: x, y: topY))
-                path.addLine(to: CGPoint(x: x, y: bottomY))
-            }
-            
-            context.stroke(path, with: .color(.blue.opacity(0.6)), lineWidth: 1)
+    private func scrollToPlayhead(time: Double) {
+        withAnimation(.linear(duration: 0.1)) {
+            scrollProxy?.scrollTo("playhead", anchor: .center)
         }
     }
 }
 
-struct TimeRuler: View {
+/// Renders a slice of the waveform and time ruler
+struct WaveformChunk: View {
+    @ObservedObject var player: VLCPlayer
+    let startTime: Double
     let duration: Double
     let pixelsPerSecond: Double
+    let verticalZoom: Double
     
     var body: some View {
-        Canvas { context, size in
-            let step = 1.0 // 1 second
-            for s in stride(from: 0, to: duration, by: step) {
-                let x = CGFloat(s * pixelsPerSecond)
+        VStack(spacing: 0) {
+            // Ruler part of the chunk
+            Canvas { context, size in
+                let end = startTime + duration
+                for s in stride(from: startTime, to: end, by: 1.0) {
+                    let relativeX = CGFloat((s - startTime) * pixelsPerSecond)
+                    
+                    // Major tick
+                    var path = Path()
+                    path.move(to: CGPoint(x: relativeX, y: 10))
+                    path.addLine(to: CGPoint(x: relativeX, y: 20))
+                    context.stroke(path, with: .color(.secondary), lineWidth: 1)
+                    
+                    // Label every 5 seconds
+                    if Int(s) % 5 == 0 {
+                        let timeStr = formatTime(s)
+                        context.draw(Text(timeStr).font(.system(size: 8)).foregroundColor(.secondary), at: CGPoint(x: relativeX + 2, y: 5))
+                    }
+                }
+            }
+            .frame(height: 20)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            // Waveform part of the chunk
+            Canvas { context, size in
+                guard !player.waveformSamples.isEmpty else { return }
+                
+                let height = size.height
+                let midY = height / 2
+                let samples = player.waveformSamples
+                
+                let peaksPerSecond = 100.0
+                let samplesPerPixel = peaksPerSecond / pixelsPerSecond
+                let startSampleIdx = Int(startTime * peaksPerSecond)
                 
                 var path = Path()
-                path.move(to: CGPoint(x: x, y: 10))
-                path.addLine(to: CGPoint(x: x, y: 20))
-                context.stroke(path, with: .color(.secondary), lineWidth: 1)
-                
-                if Int(s) % 5 == 0 {
-                    let timeStr = formatTime(s)
-                    context.draw(Text(timeStr).font(.system(size: 8)).foregroundColor(.secondary), at: CGPoint(x: x + 2, y: 5))
+                for x in stride(from: 0, to: size.width, by: 1) {
+                    let sampleIdx = startSampleIdx + Int(Double(x) * samplesPerPixel)
+                    guard sampleIdx < samples.count else { break }
+                    
+                    let peak = samples[sampleIdx]
+                    let topY = midY - (CGFloat(peak.max) * midY * 0.9 * verticalZoom)
+                    let bottomY = midY - (CGFloat(peak.min) * midY * 0.9 * verticalZoom)
+                    
+                    path.move(to: CGPoint(x: x, y: topY))
+                    path.addLine(to: CGPoint(x: x, y: bottomY))
                 }
+                context.stroke(path, with: .color(.blue.opacity(0.6)), lineWidth: 1)
             }
         }
     }
@@ -150,6 +184,7 @@ struct SubtitleBlock: View {
     @State private var dragMode: DragMode = .none
     @State private var initialStartTime: Double = 0
     @State private var initialEndTime: Double = 0
+    static let minimumGap: Double = 0.024
     
     enum DragMode {
         case none, moving, resizingLeft, resizingRight
@@ -206,25 +241,27 @@ struct SubtitleBlock: View {
                     initialEndTime = item.endTime.totalSeconds
                     player.isUserInteracting = true
                 }
-                
                 let deltaSeconds = Double(value.translation.width) / pixelsPerSecond
-                
                 if let index = player.subtitles.firstIndex(where: { $0.id == item.id }) {
                     let itemDuration = initialEndTime - initialStartTime
                     
+                    let sortedSubs = player.subtitles.sorted { $0.startTime.totalSeconds < $1.startTime.totalSeconds }
+                    let myIndex = sortedSubs.firstIndex(where: { $0.id == item.id }) ?? 0
+                    let minBound: Double = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds + SubtitleBlock.minimumGap : 0
+                    let maxBound: Double = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds - SubtitleBlock.minimumGap : player.duration
+                    
                     switch dragMode {
                     case .moving:
-                        let newStart = max(0, min(initialStartTime + deltaSeconds, player.duration - itemDuration))
+                        let newStart = max(minBound, min(initialStartTime + deltaSeconds, maxBound - itemDuration))
                         player.subtitles[index].startTime.totalSeconds = newStart
                         player.subtitles[index].endTime.totalSeconds = newStart + itemDuration
                     case .resizingLeft:
-                        let newStart = max(0, min(initialStartTime + deltaSeconds, initialEndTime - 0.1))
+                        let newStart = max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.1))
                         player.subtitles[index].startTime.totalSeconds = newStart
                     case .resizingRight:
-                        let newEnd = min(player.duration, max(initialEndTime + deltaSeconds, initialStartTime + 0.1))
+                        let newEnd = min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.1))
                         player.subtitles[index].endTime.totalSeconds = newEnd
-                    case .none:
-                        break
+                    case .none: break
                     }
                 }
             }

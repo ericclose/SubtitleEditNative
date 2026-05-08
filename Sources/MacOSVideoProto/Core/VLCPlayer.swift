@@ -25,12 +25,17 @@ class VLCPlayer: ObservableObject {
     }
     
     func loadFile(url: URL) {
+        Logger.shared.log("Attempting to load file: \(url.path)")
         currentFileName = url.lastPathComponent
         bridge.loadMedia(path: url.path)
+        Logger.shared.log("Media loaded into bridge")
         bridge.play()
+        Logger.shared.log("Bridge play command sent")
         isPlaying = true
         
+        Logger.shared.log("Starting waveform extraction")
         WaveformExtractor.extract(from: url) { [weak self] samples in
+            Logger.shared.log("Waveform extraction completed with \(samples.count) samples")
             Task { @MainActor in
                 self?.waveformSamples = samples
             }

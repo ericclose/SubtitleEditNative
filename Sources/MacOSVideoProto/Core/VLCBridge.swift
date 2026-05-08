@@ -94,9 +94,25 @@ class VLCBridge: @unchecked Sendable {
             _mediaPlayerSetPosition = unsafeBitCast(dlsym(h, "libvlc_media_player_set_position"), to: MediaPlayerSetPositionFunc.self)
 
             setenv("VLC_PLUGIN_PATH", finalPluginsPath, 1)
-            let args: [String] = ["--extraintf=", "--vout=macosx", "--plugin-path=\(finalPluginsPath)", "--no-lua"]
-            var cArgs: [UnsafePointer<CChar>?] = args.map { ($0 as NSString).utf8String }
-            instance = _newInstance?(Int32(args.count), &cArgs)
+            let args: [String] = [
+                "--extraintf=",
+                "--vout=macosx",
+                "--plugin-path=\(finalPluginsPath)",
+                "--no-lua",
+                "--no-sub-autodetect-file",
+                "--no-osd",
+                "--quiet"
+            ]
+            
+            // Correct way to handle C-style string arrays to avoid dangling pointers
+            let cArgs = args.map { strdup($0) }
+            defer {
+                for ptr in cArgs { free(ptr) }
+            }
+            
+            // Map mutable pointers to immutable ones for the C function call
+            var cArgsConst = cArgs.map { UnsafePointer<CChar>($0) }
+            instance = _newInstance?(Int32(args.count), &cArgsConst)
             
             if let inst = instance {
                 mediaPlayer = _mediaPlayerNew?(inst)
@@ -110,12 +126,19 @@ class VLCBridge: @unchecked Sendable {
     }
 
     func loadMedia(path: String) {
-        guard let inst = instance, let player = mediaPlayer else { return }
+        Logger.shared.log("VLCBridge: Loading media from \(path)")
+        guard let inst = instance, let player = mediaPlayer else { 
+            Logger.shared.log("VLCBridge: Cannot load media, bridge not initialized", level: .error)
+            return 
+        }
         path.withCString { cPath in
             let media = _mediaNewPath?(inst, cPath)
             if let m = media {
                 _mediaPlayerSetMedia?(player, m)
                 _mediaRelease?(m)
+                Logger.shared.log("VLCBridge: Media attached to player")
+            } else {
+                Logger.shared.log("VLCBridge: Failed to create media from path", level: .error)
             }
         }
     }
