@@ -14,6 +14,7 @@ RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
 PLUGINS_DIR="${MACOS_DIR}/plugins"
 
+rm -rf "${CONTENTS_DIR}"
 mkdir -p "${MACOS_DIR}"
 mkdir -p "${RESOURCES_DIR}"
 mkdir -p "${FRAMEWORKS_DIR}"
@@ -52,9 +53,9 @@ fi
 echo "Step 5: Fixing Paths and Re-signing..."
 chmod +w "${FRAMEWORKS_DIR}/libvlc.dylib"
 chmod +w "${FRAMEWORKS_DIR}/libvlccore.dylib"
-install_name_tool -change "@rpath/libvlccore.dylib" "@loader_path/libvlccore.dylib" "${FRAMEWORKS_DIR}/libvlc.dylib"
-install_name_tool -id "@loader_path/libvlc.dylib" "${FRAMEWORKS_DIR}/libvlc.dylib"
-install_name_tool -id "@loader_path/libvlccore.dylib" "${FRAMEWORKS_DIR}/libvlccore.dylib"
+install_name_tool -change "@rpath/libvlccore.dylib" "@loader_path/libvlccore.dylib" "${FRAMEWORKS_DIR}/libvlc.dylib" 2>/dev/null
+install_name_tool -id "@loader_path/libvlc.dylib" "${FRAMEWORKS_DIR}/libvlc.dylib" 2>/dev/null
+install_name_tool -id "@loader_path/libvlccore.dylib" "${FRAMEWORKS_DIR}/libvlccore.dylib" 2>/dev/null
 install_name_tool -add_rpath "@executable_path/../Frameworks" "${MACOS_DIR}/${APP_NAME}" 2>/dev/null || true
 
 codesign --force --sign - "${FRAMEWORKS_DIR}/libvlccore.dylib"

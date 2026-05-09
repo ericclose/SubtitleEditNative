@@ -11,7 +11,7 @@ struct WaveformView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            ScrollViewReader { proxy in
+            ScrollViewReader { _ in
                 ScrollView(.horizontal, showsIndicators: true) {
                     let totalWidth = player.duration * pixelsPerSecond + leftMargin + 50.0
                     
@@ -182,7 +182,7 @@ struct SubtitleBlock: View {
                 )
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.text.attributedString)
+                Text(item.plainText)
                     .font(.system(size: 10, weight: .medium))
                     .lineLimit(2)
                     .padding(.horizontal, 4)

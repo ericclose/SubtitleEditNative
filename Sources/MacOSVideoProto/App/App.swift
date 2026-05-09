@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 @main
 struct MacOSVideoProtoApp: App {
@@ -73,4 +74,3 @@ struct MacOSVideoProtoApp: App {
         }
     }
 }
-import UniformTypeIdentifiers

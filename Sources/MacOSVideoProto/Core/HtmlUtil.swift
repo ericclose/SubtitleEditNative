@@ -24,69 +24,27 @@ extension String {
     }
     
     public var attributedString: AttributedString {
-        let plainText = self.removeHtmlTags()
-        var attrStr = AttributedString(plainText)
-        let nsString = self as NSString
-        let fullRange = NSRange(location: 0, length: nsString.length)
+        if self.isEmpty { return AttributedString("") }
         
-        // 1. Italic <i>...</i>
-        if let regex = try? NSRegularExpression(pattern: "<i>(.*?)</i>", options: [.caseInsensitive, .dotMatchesLineSeparators]) {
-            for match in regex.matches(in: self, range: fullRange) where match.numberOfRanges > 1 {
-                let inner = nsString.substring(with: match.range(at: 1))
-                if let r = attrStr.range(of: inner) {
-                    attrStr[r].font = Font.system(size: 10).italic()
-                }
-            }
+        // 1. For plain text without tags, apply standard 13px font
+        if !self.contains("<") { 
+            var attr = AttributedString(self)
+            attr.font = .system(size: 13)
+            return attr 
         }
         
-        // 2. Bold <b>...</b>
-        if let regex = try? NSRegularExpression(pattern: "<b>(.*?)</b>", options: [.caseInsensitive, .dotMatchesLineSeparators]) {
-            for match in regex.matches(in: self, range: fullRange) where match.numberOfRanges > 1 {
-                let inner = nsString.substring(with: match.range(at: 1))
-                if let r = attrStr.range(of: inner) {
-                    attrStr[r].font = Font.system(size: 10, weight: .bold)
-                }
-            }
+        // 2. For tagged text, use HTML engine with precise CSS sizing
+        // Using '13px' to match SwiftUI's .system(size: 13)
+        let htmlString = "<span style=\"font-family: -apple-system; font-size: 13px; color: white;\">\(self.replacingOccurrences(of: "\n", with: "<br>"))</span>"
+        guard let data = htmlString.data(using: .utf16),
+              let nsAttrStr = try? NSAttributedString(
+                data: data,
+                options: [.documentType: NSAttributedString.DocumentType.html, .characterEncoding: String.Encoding.utf16.rawValue],
+                documentAttributes: nil) else {
+            return AttributedString(self.removeHtmlTags())
         }
         
-        // 3. Underline <u>...</u>
-        if let regex = try? NSRegularExpression(pattern: "<u>(.*?)</u>", options: [.caseInsensitive, .dotMatchesLineSeparators]) {
-            for match in regex.matches(in: self, range: fullRange) where match.numberOfRanges > 1 {
-                let inner = nsString.substring(with: match.range(at: 1))
-                if let r = attrStr.range(of: inner) {
-                    attrStr[r].underlineStyle = .single
-                }
-            }
-        }
-        
-        // 4. Color <font color="...">...</font>
-        let colorPattern = "<font color=\"?(#[0-9A-Fa-f]{6})\"?>(.*?)</font>"
-        if let regex = try? NSRegularExpression(pattern: colorPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) {
-            for match in regex.matches(in: self, range: fullRange) where match.numberOfRanges > 2 {
-                let hex = nsString.substring(with: match.range(at: 1))
-                let inner = nsString.substring(with: match.range(at: 2))
-                if let r = attrStr.range(of: inner), let color = NSColor(hex: hex) {
-                    attrStr[r].foregroundColor = Color(color)
-                }
-            }
-        }
-        
-        return attrStr
-    }
-}
-
-extension NSColor {
-    convenience init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
-
-        var rgb: UInt64 = 0
-        Scanner(string: hexSanitized).scanHexInt64(&rgb)
-
-        let r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
-        let g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
-        let b = CGFloat(rgb & 0x0000FF) / 255.0
-
-        self.init(red: r, green: g, blue: b, alpha: 1.0)
+        // This conversion preserves bold/italic traits and uses the 13px size from CSS
+        return AttributedString(nsAttrStr)
     }
 }
