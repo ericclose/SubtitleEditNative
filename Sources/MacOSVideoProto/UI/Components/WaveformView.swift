@@ -4,69 +4,79 @@ struct WaveformView: View {
     @ObservedObject var player: VLCPlayer
     @State private var pixelsPerSecond: Double = 100.0
     @State private var verticalZoom: Double = 1.0
-    @State private var scrollProxy: ScrollViewProxy? = nil
+    @State private var scrollOffset: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 800
     
-    private let chunkSize: Double = 10.0
-    private let leftMargin: CGFloat = 50.0 
+    private let leftMargin: CGFloat = 50.0
     
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: true) {
-                    let totalWidth = player.duration * pixelsPerSecond + leftMargin + 50.0 // 50 is trailing gutter
+                    let totalWidth = player.duration * pixelsPerSecond + leftMargin + 50.0
                     
                     ZStack(alignment: .topLeading) {
-                        // 1. Background
-                        Color.black.opacity(0.9)
-                            .frame(width: totalWidth, height: 140)
-                        
-                        // 2. Waveform Chunks (Audio peaks only)
-                        let totalChunks = Int(ceil(player.duration / chunkSize))
-                        let samples = player.waveformSamples
-                        ForEach(0..<totalChunks, id: \.self) { i in
-                            let startTime = Double(i) * chunkSize
-                            let width = CGFloat(chunkSize * pixelsPerSecond)
-                            WaveformChunk(
-                                samples: samples,
-                                startTime: startTime,
-                                duration: chunkSize,
-                                pixelsPerSecond: pixelsPerSecond,
-                                verticalZoom: verticalZoom
+                        // 1. Spacer to define total scrollable width
+                        Color.clear.frame(width: totalWidth, height: 140)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(key: ScrollOffsetKey.self, value: geo.frame(in: .named("scroll")).origin.x)
+                                }
                             )
-                            .frame(width: width, height: 120)
-                            .position(x: CGFloat(startTime * pixelsPerSecond) + width/2 + leftMargin, y: 80)
-                        }
                         
-                        // 3. Global Ruler (Time markers) - Single Canvas to prevent clipping
+                        // 2. Viewport-aware Drawing Layer
+                        // This canvas translates its drawing origin based on scrollOffset
                         Canvas { context, size in
-                            let step: Double = 5.0 // Marker every 5 seconds
-                            for s in stride(from: 0, to: player.duration, by: 1.0) {
+                            let scrollX = -scrollOffset // Current scroll position in pixels
+                            let visibleStart = max(0, (scrollX - leftMargin) / pixelsPerSecond)
+                            let visibleEnd = visibleStart + (Double(viewportWidth) / pixelsPerSecond) + 1.0
+                            
+                            // A. Draw Waveform
+                            let samples = player.waveformSamples
+                            let peaksPerSecond = 100.0
+                            let midY: CGFloat = 80
+                            
+                            // Draw only peaks within the visible time range
+                            for s in stride(from: visibleStart, to: visibleEnd, by: 1.0 / pixelsPerSecond) {
+                                let sampleIdx = Int(s * peaksPerSecond)
+                                if sampleIdx >= 0 && sampleIdx < samples.count {
+                                    let peak = samples[sampleIdx]
+                                    let x = CGFloat(s * pixelsPerSecond) + leftMargin
+                                    let topY = midY - (CGFloat(peak.max) * 40 * verticalZoom)
+                                    let bottomY = midY - (CGFloat(peak.min) * 40 * verticalZoom)
+                                    
+                                    var path = Path()
+                                    path.move(to: CGPoint(x: x, y: topY))
+                                    path.addLine(to: CGPoint(x: x, y: bottomY))
+                                    context.stroke(path, with: .color(.blue.opacity(0.8)), lineWidth: 1)
+                                }
+                            }
+                            
+                            // B. Draw Ruler (Markers every 1s, labels every 5s)
+                            for s in stride(from: floor(visibleStart), to: visibleEnd, by: 1.0) {
                                 let x = CGFloat(s * pixelsPerSecond) + leftMargin
-                                
                                 var path = Path()
                                 path.move(to: CGPoint(x: x, y: 15))
                                 path.addLine(to: CGPoint(x: x, y: 20))
                                 context.stroke(path, with: .color(.gray), lineWidth: 1)
                                 
-                                if Int(s) % Int(step) == 0 {
-                                    let timeStr = formatTime(s)
+                                if Int(s) % 5 == 0 {
                                     context.draw(
-                                        Text(timeStr).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
+                                        Text(formatTime(s)).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
                                         at: CGPoint(x: x, y: 8),
                                         anchor: .center
                                     )
                                 }
                             }
                         }
-                        .frame(width: totalWidth, height: 25)
-                        .background(Color.white.opacity(0.05))
+                        .frame(width: totalWidth, height: 140)
                         
-                        // 4. Subtitle Blocks
+                        // 3. Subtitle Blocks (Kept as separate views for interaction)
                         ForEach(player.subtitles) { item in
                             SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond, xOffset: leftMargin)
                         }
                         
-                        // 5. Playhead
+                        // 4. Playhead
                         Rectangle()
                             .fill(Color.red)
                             .frame(width: 2)
@@ -83,11 +93,17 @@ struct WaveformView: View {
                             }
                     )
                 }
-                .onAppear {
-                    self.scrollProxy = proxy
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetKey.self) { value in
+                    self.scrollOffset = value
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear { self.viewportWidth = geo.size.width }
+                            .onChange(of: geo.size.width) { self.viewportWidth = geo.size.width }
+                    }
+                )
                 .frame(height: 160)
-                .background(Color.black)
             }
             
             // Timeline Controls
@@ -128,52 +144,14 @@ struct WaveformView: View {
     }
 }
 
-struct WaveformChunk: View, Equatable {
-    let samples: [WavePeak]
-    let startTime: Double
-    let duration: Double
-    let pixelsPerSecond: Double
-    let verticalZoom: Double
-    
-    static func == (lhs: WaveformChunk, rhs: WaveformChunk) -> Bool {
-        return lhs.startTime == rhs.startTime &&
-               lhs.duration == rhs.duration &&
-               lhs.pixelsPerSecond == rhs.pixelsPerSecond &&
-               lhs.verticalZoom == rhs.verticalZoom &&
-               lhs.samples.count == rhs.samples.count
-    }
-    
-    var body: some View {
-            Canvas { context, size in
-                guard !samples.isEmpty else { return }
-                let height = size.height
-                let midY = height / 2
-                let peaksPerSecond = 100.0
-                let samplesPerPixel = peaksPerSecond / pixelsPerSecond
-                let startSampleIdx = Int(startTime * peaksPerSecond)
-                
-                var path = Path()
-                for x in stride(from: 0, to: size.width, by: 1) {
-                    let sampleIdx = startSampleIdx + Int(Double(x) * samplesPerPixel)
-                    guard sampleIdx < samples.count else { break }
-                    
-                    let peak = samples[sampleIdx]
-                    let topY = midY - (CGFloat(peak.max) * midY * 0.9 * verticalZoom)
-                    let bottomY = midY - (CGFloat(peak.min) * midY * 0.9 * verticalZoom)
-                    
-                    path.move(to: CGPoint(x: x, y: topY))
-                    path.addLine(to: CGPoint(x: x, y: bottomY))
-                }
-                context.stroke(path, with: .color(.blue.opacity(0.8)), lineWidth: 1)
-            }
-    }
-    
-    private func formatTime(_ seconds: Double) -> String {
-        let m = Int(seconds) / 60
-        let s = Int(seconds) % 60
-        return String(format: "%02d:%02d", m, s)
+struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
+
+// SubtitleBlock and other components...
 
 struct SubtitleBlock: View {
     let item: Paragraph
