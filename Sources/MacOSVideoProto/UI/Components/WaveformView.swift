@@ -42,8 +42,8 @@ struct WaveformView: View {
                                 if sampleIdx >= 0 && sampleIdx < samples.count {
                                     let peak = samples[sampleIdx]
                                     let x = CGFloat(s * pixelsPerSecond) + leftMargin
-                                    let topY = midY - (CGFloat(peak.max) * 40 * verticalZoom)
-                                    let bottomY = midY - (CGFloat(peak.min) * 40 * verticalZoom)
+                                    let topY = midY - (CGFloat(peak.max) * CGFloat(40) * CGFloat(verticalZoom))
+                                    let bottomY = midY - (CGFloat(peak.min) * CGFloat(40) * CGFloat(verticalZoom))
                                     
                                     var path = Path()
                                     path.move(to: CGPoint(x: x, y: topY))
