@@ -1,0 +1,42 @@
+1
+00:00:05,000 --> 00:00:30,000
+This is a <i>long italic subtitle block</i> to test Phase D rendering. It should be italicized in the UI.
+
+2
+00:00:35,000 --> 00:01:00,000
+Now we are testing <b>bold text</b>. This block is 25 seconds long to ensure it fills the waveform nicely.
+
+3
+00:01:05,000 --> 00:01:30,000
+Here is some <u>underlined text</u> mixed with <font color="#FF0000">red color text</font> for validation.
+
+4
+00:01:35,000 --> 00:02:00,000
+<i><b>Nested Bold and Italic</b></i> tags are very common in professional subtitles like those in Subtitle Edit.
+
+5
+00:02:05,000 --> 00:02:30,000
+Testing a multi-line block:
+Line 1: <i>Italic</i>
+Line 2: <b>Bold</b>
+Line 3: <font color="#00FF00">Green Text</font>
+
+6
+00:02:35,000 --> 00:03:00,000
+Another long block to reach 3 minutes. This one has no tags to ensure <u>basic fallback</u> works perfectly.
+
+7
+00:03:05,000 --> 00:03:30,000
+Check this out: <font color="#0000FF">Blue text</font> should be visible against the waveform background.
+
+8
+00:03:35,000 --> 00:04:00,000
+Almost at the end. <i>Subtitle Edit Native</i> is becoming more professional step by step.
+
+9
+00:04:05,000 --> 00:04:30,000
+Final test block. <b>Bold</b>, <i>Italic</i>, <u>Underline</u>, and <font color="#FFFF00">Yellow Color</font>.
+
+10
+00:04:35,000 --> 00:05:00,000
+End of the 5-minute test sequence. Total 10 blocks, each 25 seconds long.

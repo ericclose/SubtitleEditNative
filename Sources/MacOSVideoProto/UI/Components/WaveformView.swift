@@ -182,7 +182,7 @@ struct SubtitleBlock: View {
                 )
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.text)
+                Text(item.text.attributedString)
                     .font(.system(size: 10, weight: .medium))
                     .lineLimit(2)
                     .padding(.horizontal, 4)

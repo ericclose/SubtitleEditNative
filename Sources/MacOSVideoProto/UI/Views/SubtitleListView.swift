@@ -64,7 +64,7 @@ struct SubtitleRow: View {
                 .foregroundColor(.secondary)
                 .frame(width: 60, alignment: .leading)
             
-            Text(item.text)
+            Text(item.plainText)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
