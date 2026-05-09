@@ -233,6 +233,7 @@ struct SubtitleBlock: View {
         }
 
         if dragMode == .none {
+            player.saveHistory()
             dragMode = currentMode
             initialStartTime = item.startTime.totalSeconds
             initialEndTime = item.endTime.totalSeconds

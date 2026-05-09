@@ -22,6 +22,18 @@ struct MacOSVideoProtoApp: App {
                 }
                 .keyboardShortcut("i", modifiers: .command)
             }
+            
+            CommandMenu("Edit") {
+                Button("Undo") {
+                    player.undo()
+                }
+                .keyboardShortcut("z", modifiers: .command)
+                
+                Button("Redo") {
+                    player.redo()
+                }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
         }
     }
     
@@ -54,6 +66,7 @@ struct MacOSVideoProtoApp: App {
                 if let content = try? String(contentsOf: url) {
                     if let subtitle = SubtitleParser.parse(content: content, fileName: url.lastPathComponent) {
                         player.subtitles = subtitle.paragraphs
+                        player.saveHistory() // Initial snapshot
                     }
                 }
             }

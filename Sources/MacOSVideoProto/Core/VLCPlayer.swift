@@ -19,6 +19,12 @@ class VLCPlayer: ObservableObject {
     private var lastVolume: Int = 100
     private var timer: Timer?
     private var isSeeking: Bool = false
+    
+    // Undo/Redo Stacks
+    private var undoStack: [[Paragraph]] = []
+    private var redoStack: [[Paragraph]] = []
+    private let maxHistory: Int = 100
+    
     let bridge = VLCBridge()
     
     init() {
@@ -97,6 +103,48 @@ class VLCPlayer: ObservableObject {
     func setSpeed(_ speed: Double) {
         playbackSpeed = speed
         bridge.rate = Float(speed)
+    }
+    
+    
+    // MARK: - History Management (Undo/Redo)
+    
+    func saveHistory() {
+        // Create a deep copy of the current subtitles
+        let snapshot = subtitles.map { Paragraph(paragraph: $0, generateNewId: false) }
+        
+        // Only save if it's different from the last state
+        if let last = undoStack.last, last == snapshot {
+            return
+        }
+        
+        undoStack.append(snapshot)
+        if undoStack.count > maxHistory {
+            undoStack.removeFirst()
+        }
+        
+        // Clearing redo stack after a new action
+        redoStack.removeAll()
+    }
+    
+    func undo() {
+        guard undoStack.count > 1 else { return }
+        
+        // The last element is the CURRENT state, so we move it to redo
+        let currentState = undoStack.removeLast()
+        redoStack.append(currentState)
+        
+        // The new last element is the PREVIOUS state
+        if let previousState = undoStack.last {
+            self.subtitles = previousState.map { Paragraph(paragraph: $0, generateNewId: false) }
+        }
+    }
+    
+    func redo() {
+        guard let nextState = redoStack.popLast() else { return }
+        
+        // Save current to undo before applying next
+        undoStack.append(nextState)
+        self.subtitles = nextState.map { Paragraph(paragraph: $0, generateNewId: false) }
     }
     
     private func startSyncTimer() {
