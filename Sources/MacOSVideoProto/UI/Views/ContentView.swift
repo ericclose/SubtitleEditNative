@@ -6,21 +6,27 @@ struct ContentView: View {
     var body: some View {
         VSplitView {
             HSplitView {
-                // Subtitle List Area
-                VStack(spacing: 0) {
-                    HStack {
-                        Label("Subtitles", systemImage: "list.dash")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(player.subtitles.count) items")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                // Subtitle List & Editor Area
+                VSplitView {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Label("Subtitles", systemImage: "list.dash")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(player.subtitles.count) items")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        
+                        SubtitleListView(player: player)
                     }
-                    .padding(10)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .frame(minHeight: 200)
                     
-                    SubtitleListView(player: player)
+                    SubtitleEditorView(player: player)
+                        .frame(minHeight: 180)
                 }
                 .frame(minWidth: 400, maxWidth: .infinity)
                 .background(Color(NSColor.windowBackgroundColor))

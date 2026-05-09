@@ -198,4 +198,89 @@ class VLCPlayer: ObservableObject {
             return String(format: "%02d:%02d.%03d", minutes, seconds, ms)
         }
     }
+
+    // MARK: - Editing Operations
+    
+    func updateText(for paragraph: Paragraph, to newText: String) {
+        if let index = subtitles.firstIndex(where: { $0.id == paragraph.id }) {
+            if subtitles[index].text != newText {
+                saveHistory()
+                subtitles[index].text = newText
+            }
+        }
+    }
+    
+    func updateStartTime(for paragraph: Paragraph, to newTime: Double) {
+        if let index = subtitles.firstIndex(where: { $0.id == paragraph.id }) {
+            saveHistory()
+            let duration = subtitles[index].endTime.totalSeconds - subtitles[index].startTime.totalSeconds
+            subtitles[index].startTime = TimeCode(totalMilliseconds: max(0, newTime) * 1000)
+            subtitles[index].endTime = TimeCode(totalMilliseconds: (subtitles[index].startTime.totalSeconds + duration) * 1000)
+        }
+    }
+    
+    func updateEndTime(for paragraph: Paragraph, to newTime: Double) {
+        if let index = subtitles.firstIndex(where: { $0.id == paragraph.id }) {
+            saveHistory()
+            subtitles[index].endTime = TimeCode(totalMilliseconds: max(subtitles[index].startTime.totalSeconds + 0.1, newTime) * 1000)
+        }
+    }
+    
+    func updateDuration(for paragraph: Paragraph, to newDuration: Double) {
+        if let index = subtitles.firstIndex(where: { $0.id == paragraph.id }) {
+            saveHistory()
+            subtitles[index].endTime = TimeCode(totalMilliseconds: (subtitles[index].startTime.totalSeconds + max(0.1, newDuration)) * 1000)
+        }
+    }
+    
+    // MARK: - Text Tools Logic (SE Alignment)
+    
+    func autoBreakSelected() {
+        guard let id = selectedSubtitleId, let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
+        let text = subtitles[index].text.replacingOccurrences(of: "\n", with: " ")
+        let words = text.split(separator: " ")
+        if words.count > 4 {
+            saveHistory()
+            let mid = words.count / 2
+            let firstHalf = words[..<mid].joined(separator: " ")
+            let secondHalf = words[mid...].joined(separator: " ")
+            subtitles[index].text = "\(firstHalf)\n\(secondHalf)"
+        }
+    }
+    
+    func unbreakSelected() {
+        guard let id = selectedSubtitleId, let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
+        if subtitles[index].text.contains("\n") {
+            saveHistory()
+            subtitles[index].text = subtitles[index].text.replacingOccurrences(of: "\n", with: " ")
+        }
+    }
+    
+    func italicizeSelected(range: NSRange? = nil) {
+        guard let id = selectedSubtitleId, let index = subtitles.firstIndex(where: { $0.id == id }) else { return }
+        saveHistory()
+        let currentText = subtitles[index].text
+        let nsString = currentText as NSString
+        
+        // Handle Selection-based Italic
+        if let range = range, range.length > 0, range.location + range.length <= nsString.length {
+            let selectedText = nsString.substring(with: range)
+            
+            // Toggle Logic: If it starts and ends with tags, remove them. Otherwise, add them.
+            if selectedText.hasPrefix("<i>") && selectedText.hasSuffix("</i>") {
+                let stripped = selectedText.dropFirst(3).dropLast(4)
+                subtitles[index].text = nsString.replacingCharacters(in: range, with: String(stripped))
+            } else {
+                subtitles[index].text = nsString.replacingCharacters(in: range, with: "<i>\(selectedText)</i>")
+            }
+        } else {
+            // Handle Whole Block Toggle
+            if currentText.hasPrefix("<i>") && currentText.hasSuffix("</i>") {
+                let stripped = currentText.dropFirst(3).dropLast(4)
+                subtitles[index].text = String(stripped)
+            } else {
+                subtitles[index].text = "<i>\(currentText)</i>"
+            }
+        }
+    }
 }
