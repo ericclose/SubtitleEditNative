@@ -236,88 +236,86 @@ struct SubtitleBlock: View {
     private func dragGesture(mode: DragMode) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
-                let modifiers = NSEvent.modifierFlags
-                let isAltDown = modifiers.contains(.option)
-                let isShiftDown = modifiers.contains(.shift)
-                
-                var currentMode = mode
-                if isAltDown {
-                    if mode == .resizingLeft { currentMode = .resizingLeftAnd }
-                    else if mode == .resizingRight { currentMode = .resizingRightAnd }
-                }
-
-                if dragMode == .none {
-                    dragMode = currentMode
-                    initialStartTime = item.startTime.totalSeconds
-                    initialEndTime = item.endTime.totalSeconds
-                    player.isUserInteracting = true
-                }
-                
-                let deltaSeconds = Double(value.translation.width) / pixelsPerSecond
-                
-                if let index = player.subtitles.firstIndex(where: { $0.id == item.id }) {
-                    let itemDuration = initialEndTime - initialStartTime
-                    let sortedSubs = player.subtitles.sorted { $0.startTime.totalSeconds < $1.startTime.totalSeconds }
-                    let myIndex = sortedSubs.firstIndex(where: { $0.id == item.id }) ?? 0
-                    
-                    // Boundary logic (Shift overrides overlap prevention)
-                    var minBound: Double = 0
-                    var maxBound: Double = player.duration
-                    
-                    if !isShiftDown {
-                        minBound = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds + SubtitleBlock.minimumGap : 0
-                        maxBound = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds - SubtitleBlock.minimumGap : player.duration
-                    }
-                    
-                    switch dragMode {
-                    case .moving:
-                        let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, maxBound - itemDuration)))
-                        player.subtitles[index].startTime.totalSeconds = newStart
-                        player.subtitles[index].endTime.totalSeconds = newStart + itemDuration
-                        
-                    case .resizingLeft:
-                        let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
-                        player.subtitles[index].startTime.totalSeconds = newStart
-                        
-                    case .resizingRight:
-                        let newEnd = player.snapToFrame(min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
-                        player.subtitles[index].endTime.totalSeconds = newEnd
-                        
-                    case .resizingLeftAnd:
-                        if myIndex > 0 {
-                            let prevId = sortedSubs[myIndex - 1].id
-                            if let prevIndex = player.subtitles.firstIndex(where: { $0.id == prevId }) {
-                                let newStart = player.snapToFrame(max(0, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
-                                player.subtitles[index].startTime.totalSeconds = newStart
-                                player.subtitles[prevIndex].endTime.totalSeconds = newStart - (isShiftDown ? 0 : SubtitleBlock.minimumGap)
-                            }
-                        } else {
-                            // Fallback to normal resizing if no previous
-                            let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
-                            player.subtitles[index].startTime.totalSeconds = newStart
-                        }
-                        
-                    case .resizingRightAnd:
-                        if myIndex < sortedSubs.count - 1 {
-                            let nextId = sortedSubs[myIndex + 1].id
-                            if let nextIndex = player.subtitles.firstIndex(where: { $0.id == nextId }) {
-                                let newEnd = player.snapToFrame(min(player.duration, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
-                                player.subtitles[index].endTime.totalSeconds = newEnd
-                                player.subtitles[nextIndex].startTime.totalSeconds = newEnd + (isShiftDown ? 0 : SubtitleBlock.minimumGap)
-                            }
-                        } else {
-                            // Fallback to normal resizing if no next
-                            let newEnd = player.snapToFrame(min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
-                            player.subtitles[index].endTime.totalSeconds = newEnd
-                        }
-                        
-                    case .none: break
-                    }
-                }
+                handleDragChanged(value, mode: mode)
             }
             .onEnded { _ in
-                dragMode = .none
-                player.isUserInteracting = false
+                handleDragEnded()
             }
+    }
+    
+    private func handleDragChanged(_ value: DragGesture.Value, mode: DragMode) {
+        let modifiers = NSEvent.modifierFlags
+        let isAltDown = modifiers.contains(.option)
+        let isShiftDown = modifiers.contains(.shift)
+        
+        var currentMode = mode
+        if isAltDown {
+            if mode == .resizingLeft { currentMode = .resizingLeftAnd }
+            else if mode == .resizingRight { currentMode = .resizingRightAnd }
+        }
+
+        if dragMode == .none {
+            dragMode = currentMode
+            initialStartTime = item.startTime.totalSeconds
+            initialEndTime = item.endTime.totalSeconds
+            player.isUserInteracting = true
+        }
+        
+        let deltaSeconds = Double(value.translation.width) / pixelsPerSecond
+        
+        guard let index = player.subtitles.firstIndex(where: { $0.id == item.id }) else { return }
+        let itemDuration = initialEndTime - initialStartTime
+        let sortedSubs = player.subtitles.sorted { $0.startTime.totalSeconds < $1.startTime.totalSeconds }
+        let myIndex = sortedSubs.firstIndex(where: { $0.id == item.id }) ?? 0
+        
+        // 1. Calculate Boundaries
+        var minBound: Double = 0
+        var maxBound: Double = player.duration
+        if !isShiftDown {
+            minBound = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds + SubtitleBlock.minimumGap : 0
+            maxBound = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds - SubtitleBlock.minimumGap : player.duration
+        }
+        
+        // 2. Execute Mode-based Update (State Machine Pattern)
+        updatePositions(delta: deltaSeconds, index: index, myIndex: myIndex, sortedSubs: sortedSubs, itemDuration: itemDuration, minBound: minBound, maxBound: maxBound, isShiftDown: isShiftDown)
+    }
+    
+    private func updatePositions(delta: Double, index: Int, myIndex: Int, sortedSubs: [Paragraph], itemDuration: Double, minBound: Double, maxBound: Double, isShiftDown: Bool) {
+        switch dragMode {
+        case .moving:
+            let newStart = player.snapToFrame(max(minBound, min(initialStartTime + delta, maxBound - itemDuration)))
+            player.subtitles[index].startTime.totalSeconds = newStart
+            player.subtitles[index].endTime.totalSeconds = newStart + itemDuration
+            
+        case .resizingLeft:
+            let newStart = player.snapToFrame(max(minBound, min(initialStartTime + delta, initialEndTime - 0.05)))
+            player.subtitles[index].startTime.totalSeconds = newStart
+            
+        case .resizingRight:
+            let newEnd = player.snapToFrame(min(maxBound, max(initialEndTime + delta, initialStartTime + 0.05)))
+            player.subtitles[index].endTime.totalSeconds = newEnd
+            
+        case .resizingLeftAnd:
+            if myIndex > 0 {
+                let prevIndex = player.subtitles.firstIndex(where: { $0.id == sortedSubs[myIndex - 1].id })!
+                let newStart = player.snapToFrame(max(0, min(initialStartTime + delta, initialEndTime - 0.05)))
+                player.subtitles[index].startTime.totalSeconds = newStart
+                player.subtitles[prevIndex].endTime.totalSeconds = newStart - (isShiftDown ? 0 : SubtitleBlock.minimumGap)
+            }
+            
+        case .resizingRightAnd:
+            if myIndex < sortedSubs.count - 1 {
+                let nextIndex = player.subtitles.firstIndex(where: { $0.id == sortedSubs[myIndex + 1].id })!
+                let newEnd = player.snapToFrame(min(player.duration, max(initialEndTime + delta, initialStartTime + 0.05)))
+                player.subtitles[index].endTime.totalSeconds = newEnd
+                player.subtitles[nextIndex].startTime.totalSeconds = newEnd + (isShiftDown ? 0 : SubtitleBlock.minimumGap)
+            }
+        default: break
+        }
+    }
+    
+    private func handleDragEnded() {
+        dragMode = .none
+        player.isUserInteracting = false
     }
 }
