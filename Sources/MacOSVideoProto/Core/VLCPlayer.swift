@@ -82,7 +82,8 @@ class VLCPlayer: ObservableObject {
         bridge.position = max(0.0, min(1.0, targetPosition))
         
         // Immediate update of selected subtitle
-        if let activeSub = subtitles.first(where: { time >= $0.startTime.totalSeconds && time <= $0.endTime.totalSeconds }) {
+        // Use exclusive end time to avoid boundary issues (SE logic: start <= time < end)
+        if let activeSub = subtitles.first(where: { time >= $0.startTime.totalSeconds && time < $0.endTime.totalSeconds }) {
             selectedSubtitleId = activeSub.id
         } else {
             selectedSubtitleId = nil
@@ -123,7 +124,8 @@ class VLCPlayer: ObservableObject {
                 }
                 
                 // Update selected subtitle based on current time
-                if let activeSub = self.subtitles.first(where: { self.currentTime >= $0.startTime.totalSeconds && self.currentTime <= $0.endTime.totalSeconds }) {
+                // Using exclusive end time: [start, end)
+                if let activeSub = self.subtitles.first(where: { self.currentTime >= $0.startTime.totalSeconds && self.currentTime < $0.endTime.totalSeconds }) {
                     if self.selectedSubtitleId != activeSub.id {
                         self.selectedSubtitleId = activeSub.id
                     }

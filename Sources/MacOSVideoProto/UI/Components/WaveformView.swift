@@ -20,8 +20,7 @@ struct WaveformView: View {
                         Color.black.opacity(0.9)
                             .frame(width: totalWidth, height: 140)
                         
-                        // 2. Waveform & Ruler Chunks
-                        // We use a simple ZStack with positions to avoid LazyHStack alignment shifts
+                        // 2. Waveform Chunks (Audio peaks only)
                         let totalChunks = Int(ceil(player.duration / chunkSize))
                         let samples = player.waveformSamples
                         ForEach(0..<totalChunks, id: \.self) { i in
@@ -34,20 +33,44 @@ struct WaveformView: View {
                                 pixelsPerSecond: pixelsPerSecond,
                                 verticalZoom: verticalZoom
                             )
-                            .frame(width: width, height: 140)
-                            .position(x: CGFloat(startTime * pixelsPerSecond) + width/2 + leftMargin, y: 70)
+                            .frame(width: width, height: 120)
+                            .position(x: CGFloat(startTime * pixelsPerSecond) + width/2 + leftMargin, y: 80)
                         }
                         
-                        // 3. Subtitle Blocks
+                        // 3. Global Ruler (Time markers) - Single Canvas to prevent clipping
+                        Canvas { context, size in
+                            let step: Double = 5.0 // Marker every 5 seconds
+                            for s in stride(from: 0, to: player.duration, by: 1.0) {
+                                let x = CGFloat(s * pixelsPerSecond) + leftMargin
+                                
+                                var path = Path()
+                                path.move(to: CGPoint(x: x, y: 15))
+                                path.addLine(to: CGPoint(x: x, y: 20))
+                                context.stroke(path, with: .color(.gray), lineWidth: 1)
+                                
+                                if Int(s) % Int(step) == 0 {
+                                    let timeStr = formatTime(s)
+                                    context.draw(
+                                        Text(timeStr).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
+                                        at: CGPoint(x: x, y: 8),
+                                        anchor: .center
+                                    )
+                                }
+                            }
+                        }
+                        .frame(width: totalWidth, height: 25)
+                        .background(Color.white.opacity(0.05))
+                        
+                        // 4. Subtitle Blocks
                         ForEach(player.subtitles) { item in
                             SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond, xOffset: leftMargin)
                         }
                         
-                        // 4. Playhead
+                        // 5. Playhead
                         Rectangle()
                             .fill(Color.red)
                             .frame(width: 2)
-                            .position(x: CGFloat(player.currentTime * pixelsPerSecond) + leftMargin, y: 70)
+                            .position(x: CGFloat(player.currentTime * pixelsPerSecond) + leftMargin, y: 80)
                             .id("playhead")
                     }
                     .frame(width: totalWidth, height: 140)
@@ -97,6 +120,12 @@ struct WaveformView: View {
             .background(Color(NSColor.windowBackgroundColor))
         }
     }
+
+    private func formatTime(_ seconds: Double) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%02d:%02d", m, s)
+    }
 }
 
 struct WaveformChunk: View, Equatable {
@@ -115,30 +144,6 @@ struct WaveformChunk: View, Equatable {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            Canvas { context, size in
-                let end = startTime + duration
-                for s in stride(from: startTime, to: end, by: 1.0) {
-                    let relativeX = CGFloat((s - startTime) * pixelsPerSecond)
-                    
-                    var path = Path()
-                    path.move(to: CGPoint(x: relativeX, y: 12))
-                    path.addLine(to: CGPoint(x: relativeX, y: 20))
-                    context.stroke(path, with: .color(.gray), lineWidth: 1)
-                    
-                    if Int(s) % 5 == 0 {
-                        let timeStr = formatTime(s)
-                        context.draw(
-                            Text(timeStr).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
-                            at: CGPoint(x: relativeX, y: 10),
-                            anchor: .center
-                        )
-                    }
-                }
-            }
-            .frame(height: 20)
-            .background(Color.white.opacity(0.05))
-            
             Canvas { context, size in
                 guard !samples.isEmpty else { return }
                 let height = size.height
@@ -161,7 +166,6 @@ struct WaveformChunk: View, Equatable {
                 }
                 context.stroke(path, with: .color(.blue.opacity(0.8)), lineWidth: 1)
             }
-        }
     }
     
     private func formatTime(_ seconds: Double) -> String {
