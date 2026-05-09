@@ -58,10 +58,10 @@ install_name_tool -id "@loader_path/libvlc.dylib" "${FRAMEWORKS_DIR}/libvlc.dyli
 install_name_tool -id "@loader_path/libvlccore.dylib" "${FRAMEWORKS_DIR}/libvlccore.dylib" 2>/dev/null
 install_name_tool -add_rpath "@executable_path/../Frameworks" "${MACOS_DIR}/${APP_NAME}" 2>/dev/null || true
 
-codesign --force --sign - "${FRAMEWORKS_DIR}/libvlccore.dylib"
-codesign --force --sign - "${FRAMEWORKS_DIR}/libvlc.dylib"
-codesign --force --sign - "${MACOS_DIR}/ffmpeg"
-codesign --force --sign - "${MACOS_DIR}/${APP_NAME}"
+codesign --force --sign - "${FRAMEWORKS_DIR}/libvlccore.dylib" > /dev/null 2>&1
+codesign --force --sign - "${FRAMEWORKS_DIR}/libvlc.dylib" > /dev/null 2>&1
+codesign --force --sign - "${MACOS_DIR}/ffmpeg" > /dev/null 2>&1
+codesign --force --sign - "${MACOS_DIR}/${APP_NAME}" > /dev/null 2>&1
 
 # Trigger Finder Icon Refresh
 touch "${BUNDLE_DIR}"
