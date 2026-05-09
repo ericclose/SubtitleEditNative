@@ -15,6 +15,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6.0.2
 
+      - name: Environment Diagnosis
+        run: |
+          echo "--- CI Swift Version ---"
+          swift --version
+          echo "--- CI Xcode Version ---"
+          xcodebuild -version || echo "xcodebuild not available"
+          echo "--- CI MacOS Version ---"
+          sw_vers
+
       - name: Install Dependencies (VLC & FFmpeg)
         run: |
           brew install ffmpeg
