@@ -13,61 +13,52 @@ struct WaveformView: View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: true) {
-                    HStack(spacing: 0) {
-                        // 1. Explicit Leading Gutter
-                        Spacer().frame(width: leftMargin)
+                    let totalWidth = player.duration * pixelsPerSecond + leftMargin + 50.0 // 50 is trailing gutter
+                    
+                    ZStack(alignment: .topLeading) {
+                        // 1. Background
+                        Color.black.opacity(0.9)
+                            .frame(width: totalWidth, height: 140)
                         
-                        ZStack(alignment: .topLeading) {
-                            let totalWidth = player.duration * pixelsPerSecond
-                            
-                            // 2. Waveform Background
-                            Color.black.opacity(0.9)
-                                .frame(width: totalWidth, height: 140)
-                            
-                            // 3. Waveform Chunks
-                            LazyHStack(alignment: .top, spacing: 0) {
-                                let totalChunks = Int(ceil(player.duration / chunkSize))
-                                let samples = player.waveformSamples
-                                ForEach(0..<totalChunks, id: \.self) { i in
-                                    let startTime = Double(i) * chunkSize
-                                    WaveformChunk(
-                                        samples: samples,
-                                        startTime: startTime,
-                                        duration: chunkSize,
-                                        pixelsPerSecond: pixelsPerSecond,
-                                        verticalZoom: verticalZoom
-                                    )
-                                    .frame(width: CGFloat(chunkSize * pixelsPerSecond))
-                                }
-                            }
-                            
-                            // 4. Subtitle Blocks
-                            ZStack(alignment: .leading) {
-                                ForEach(player.subtitles) { item in
-                                    SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond)
-                                }
-                            }
-                            .offset(y: 20)
-                            
-                            // 5. Playhead
-                            Rectangle()
-                                .fill(Color.red)
-                                .frame(width: 2)
-                                .offset(x: CGFloat(player.currentTime * pixelsPerSecond))
-                                .id("playhead")
+                        // 2. Waveform & Ruler Chunks
+                        // We use a simple ZStack with positions to avoid LazyHStack alignment shifts
+                        let totalChunks = Int(ceil(player.duration / chunkSize))
+                        let samples = player.waveformSamples
+                        ForEach(0..<totalChunks, id: \.self) { i in
+                            let startTime = Double(i) * chunkSize
+                            let width = CGFloat(chunkSize * pixelsPerSecond)
+                            WaveformChunk(
+                                samples: samples,
+                                startTime: startTime,
+                                duration: chunkSize,
+                                pixelsPerSecond: pixelsPerSecond,
+                                verticalZoom: verticalZoom
+                            )
+                            .frame(width: width, height: 140)
+                            .position(x: CGFloat(startTime * pixelsPerSecond) + width/2 + leftMargin, y: 70)
                         }
-                        .contentShape(Rectangle())
-                        .gesture(
-                            SpatialTapGesture()
-                                .onEnded { event in
-                                    let time = Double(event.location.x) / pixelsPerSecond
-                                    player.seek(to: max(0, min(time, player.duration)))
-                                }
-                        )
                         
-                        // 6. Trailing Gutter
-                        Spacer().frame(width: 50.0) 
+                        // 3. Subtitle Blocks
+                        ForEach(player.subtitles) { item in
+                            SubtitleBlock(item: item, player: player, pixelsPerSecond: pixelsPerSecond, xOffset: leftMargin)
+                        }
+                        
+                        // 4. Playhead
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2)
+                            .position(x: CGFloat(player.currentTime * pixelsPerSecond) + leftMargin, y: 70)
+                            .id("playhead")
                     }
+                    .frame(width: totalWidth, height: 140)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        SpatialTapGesture()
+                            .onEnded { event in
+                                let time = (Double(event.location.x) - Double(leftMargin)) / pixelsPerSecond
+                                player.seek(to: max(0, min(time, player.duration)))
+                            }
+                    )
                 }
                 .onAppear {
                     self.scrollProxy = proxy
@@ -139,7 +130,8 @@ struct WaveformChunk: View, Equatable {
                         let timeStr = formatTime(s)
                         context.draw(
                             Text(timeStr).font(.system(size: 10, weight: .bold)).foregroundColor(.white),
-                            at: CGPoint(x: relativeX + 20, y: 6)
+                            at: CGPoint(x: relativeX, y: 10),
+                            anchor: .center
                         )
                     }
                 }
@@ -183,6 +175,7 @@ struct SubtitleBlock: View {
     let item: Paragraph
     @ObservedObject var player: VLCPlayer
     let pixelsPerSecond: Double
+    let xOffset: CGFloat
     
     @State private var dragMode: DragMode = .none
     @State private var initialStartTime: Double = 0
@@ -190,7 +183,7 @@ struct SubtitleBlock: View {
     static let minimumGap: Double = 0.024
     
     enum DragMode {
-        case none, moving, resizingLeft, resizingRight
+        case none, moving, resizingLeft, resizingRight, resizingLeftAnd, resizingRightAnd
     }
     
     var body: some View {
@@ -227,7 +220,7 @@ struct SubtitleBlock: View {
             }
         }
         .frame(width: max(0, width), height: 100)
-        .offset(x: xStart, y: 10)
+        .position(x: xStart + width/2 + xOffset, y: 70) // Unified absolute anchoring
         .id(item.id)
         .onTapGesture {
             player.selectedSubtitleId = item.id
@@ -237,34 +230,83 @@ struct SubtitleBlock: View {
     }
     
     private func dragGesture(mode: DragMode) -> some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 0)
             .onChanged { value in
+                let modifiers = NSEvent.modifierFlags
+                let isAltDown = modifiers.contains(.option)
+                let isShiftDown = modifiers.contains(.shift)
+                
+                var currentMode = mode
+                if isAltDown {
+                    if mode == .resizingLeft { currentMode = .resizingLeftAnd }
+                    else if mode == .resizingRight { currentMode = .resizingRightAnd }
+                }
+
                 if dragMode == .none {
-                    dragMode = mode
+                    dragMode = currentMode
                     initialStartTime = item.startTime.totalSeconds
                     initialEndTime = item.endTime.totalSeconds
                     player.isUserInteracting = true
                 }
+                
                 let deltaSeconds = Double(value.translation.width) / pixelsPerSecond
+                
                 if let index = player.subtitles.firstIndex(where: { $0.id == item.id }) {
                     let itemDuration = initialEndTime - initialStartTime
-                    
                     let sortedSubs = player.subtitles.sorted { $0.startTime.totalSeconds < $1.startTime.totalSeconds }
                     let myIndex = sortedSubs.firstIndex(where: { $0.id == item.id }) ?? 0
-                    let minBound: Double = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds + SubtitleBlock.minimumGap : 0
-                    let maxBound: Double = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds - SubtitleBlock.minimumGap : player.duration
+                    
+                    // Boundary logic (Shift overrides overlap prevention)
+                    var minBound: Double = 0
+                    var maxBound: Double = player.duration
+                    
+                    if !isShiftDown {
+                        minBound = (myIndex > 0) ? sortedSubs[myIndex - 1].endTime.totalSeconds + SubtitleBlock.minimumGap : 0
+                        maxBound = (myIndex < sortedSubs.count - 1) ? sortedSubs[myIndex + 1].startTime.totalSeconds - SubtitleBlock.minimumGap : player.duration
+                    }
                     
                     switch dragMode {
                     case .moving:
-                        let newStart = max(minBound, min(initialStartTime + deltaSeconds, maxBound - itemDuration))
+                        let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, maxBound - itemDuration)))
                         player.subtitles[index].startTime.totalSeconds = newStart
                         player.subtitles[index].endTime.totalSeconds = newStart + itemDuration
+                        
                     case .resizingLeft:
-                        let newStart = max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.1))
+                        let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
                         player.subtitles[index].startTime.totalSeconds = newStart
+                        
                     case .resizingRight:
-                        let newEnd = min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.1))
+                        let newEnd = player.snapToFrame(min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
                         player.subtitles[index].endTime.totalSeconds = newEnd
+                        
+                    case .resizingLeftAnd:
+                        if myIndex > 0 {
+                            let prevId = sortedSubs[myIndex - 1].id
+                            if let prevIndex = player.subtitles.firstIndex(where: { $0.id == prevId }) {
+                                let newStart = player.snapToFrame(max(0, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
+                                player.subtitles[index].startTime.totalSeconds = newStart
+                                player.subtitles[prevIndex].endTime.totalSeconds = newStart - (isShiftDown ? 0 : SubtitleBlock.minimumGap)
+                            }
+                        } else {
+                            // Fallback to normal resizing if no previous
+                            let newStart = player.snapToFrame(max(minBound, min(initialStartTime + deltaSeconds, initialEndTime - 0.05)))
+                            player.subtitles[index].startTime.totalSeconds = newStart
+                        }
+                        
+                    case .resizingRightAnd:
+                        if myIndex < sortedSubs.count - 1 {
+                            let nextId = sortedSubs[myIndex + 1].id
+                            if let nextIndex = player.subtitles.firstIndex(where: { $0.id == nextId }) {
+                                let newEnd = player.snapToFrame(min(player.duration, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
+                                player.subtitles[index].endTime.totalSeconds = newEnd
+                                player.subtitles[nextIndex].startTime.totalSeconds = newEnd + (isShiftDown ? 0 : SubtitleBlock.minimumGap)
+                            }
+                        } else {
+                            // Fallback to normal resizing if no next
+                            let newEnd = player.snapToFrame(min(maxBound, max(initialEndTime + deltaSeconds, initialStartTime + 0.05)))
+                            player.subtitles[index].endTime.totalSeconds = newEnd
+                        }
+                        
                     case .none: break
                     }
                 }

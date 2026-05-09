@@ -14,6 +14,7 @@ struct SubtitleListView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(player.selectedSubtitleId == item.id ? Color.accentColor.opacity(0.2) : Color.clear)
                     .onTapGesture(count: 2) {
+                        player.selectedSubtitleId = item.id
                         player.seek(to: item.startTime.totalSeconds + 0.001)
                     }
             }

@@ -14,6 +14,7 @@ class VLCPlayer: ObservableObject {
     @Published var selectedSubtitleId: String? = nil
     @Published var isMuted: Bool = false
     @Published var isUserInteracting: Bool = false
+    @Published var fps: Double = 23.976
     
     private var lastVolume: Int = 100
     private var timer: Timer?
@@ -129,6 +130,11 @@ class VLCPlayer: ObservableObject {
                 }
             }
         }
+    }
+    
+    func snapToFrame(_ seconds: Double) -> Double {
+        let frameDuration = 1.0 / fps
+        return (seconds / frameDuration).rounded() * frameDuration
     }
     
     func formatTime(_ time: Double) -> String {
